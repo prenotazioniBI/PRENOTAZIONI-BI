@@ -3,4 +3,4 @@ streamlit
 matplotlib
 sharepoint_utils
 openpyxl
-
+msal
