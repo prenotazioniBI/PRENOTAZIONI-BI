@@ -2,5 +2,5 @@ pandas
 streamlit
 matplotlib
 sharepoint_utils
-openpyxlsx
+openpyxl
 
