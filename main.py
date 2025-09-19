@@ -64,6 +64,7 @@ def get_navigator():
     return nav
 
 
+
 def authentication():
     col1, col2, col3 = st.columns(3)
     with col2:
@@ -99,6 +100,7 @@ def authentication():
 
 
 def main():
+    st.cache_data.clear()
     df, df_soggetti, df_utenza = get_files_from_sharepoint()
     df = prepare_data(df)
     
@@ -112,6 +114,7 @@ def main():
                 "ruolo": ruolo,
                 "username": username
             }
+
             st.rerun()
         else:
             st.stop()
