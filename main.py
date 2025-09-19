@@ -106,7 +106,7 @@ def main():
         st.session_state['df_full'] = df.copy()
     
     if "user" not in st.session_state:
-        ruolo, username, _ = authentication()
+        ruolo, username = authentication()
         if ruolo and username:
             st.session_state.user = {
                 "ruolo": ruolo,
