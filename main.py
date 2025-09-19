@@ -1,5 +1,4 @@
 import streamlit as st
-from login import authentication
 from home_utente import home_utente
 from home_leader import home_Teamleader
 import pandas as pd
@@ -7,11 +6,19 @@ from sharepoint_utils import SharePointNavigator
 import io
 from home_admin import home_admin
 
+
+
 st.set_page_config(page_title="Prenotazioni BI", layout="wide")
+
+
+
 
 TENANT_ID = st.secrets["TENANT_ID"]
 CLIENT_ID = st.secrets["CLIENT_ID"]
 CLIENT_SECRET = st.secrets["CLIENT_SECRET"]
+
+
+
 
 @st.cache_data(show_spinner="Scarico dati da SharePoint...")  
 def get_files_from_sharepoint():
@@ -56,8 +63,43 @@ def get_navigator():
     nav.login()
     return nav
 
+
+def authentication(df_utenza):
+    col1, col2, col3 = st.columns(3)
+    with col2:
+        st.title("Prenotazioni BI")
+        with st.form(key="login_form_unique"):
+            username = st.text_input("COGNOME NOME").strip()
+            password = st.text_input("PASSWORD", type="password").strip()
+            submit = st.form_submit_button("Login")
+
+        if not submit:
+            return None, None
+
+        df = df_utenza.copy()
+        df.columns = df.columns.str.strip()
+
+        utente = df[
+            (df["username"] == username) &
+            (df["password"].astype(str) == password) &
+            (df["attivo"] == 1)
+        ]
+
+        if utente.empty:
+            st.error("Credenziali errate o utente non attivo.")
+            return None, None
+
+        ruolo = utente.iloc[0]["ruolo"]
+        username = utente.iloc[0]["username"]
+
+        st.success(f"Accesso come {ruolo}. Benvenuto, {username}!")
+        return ruolo, username
+
+
+
+
 def main():
-    df, df_soggetti, _= get_files_from_sharepoint()
+    df, df_soggetti, df_utenza = get_files_from_sharepoint()
     df = prepare_data(df)
     
     if 'df_full' not in st.session_state:

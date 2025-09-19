@@ -1,11 +1,11 @@
 import pandas as pd
 import streamlit as st
-from sharepoint_utils import SharePointNavigator
-from main import get_files_from_sharepoint
+
+
+
 def authentication():
     col1, col2, col3 = st.columns(3)
     with col2:
-        _,_,df_utenza = get_files_from_sharepoint()
         st.title("Prenotazioni BI")
         with st.form(key="login_form_unique"):
             username = st.text_input("COGNOME NOME").strip()
@@ -15,7 +15,7 @@ def authentication():
         if not submit:
             return None, None
 
-        df = pd.read_excel(df_utenza)
+        df = pd.read_excel("utenza.xlsx")
         df.columns = df.columns.str.strip()
 
         utente = df[
