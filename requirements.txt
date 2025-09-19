@@ -4,4 +4,4 @@ matplotlib
 sharepoint_utils
 openpyxl
 msal
-stdnum
+python-stdnum
