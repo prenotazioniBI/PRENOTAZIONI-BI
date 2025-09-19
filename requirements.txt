@@ -5,3 +5,4 @@ sharepoint_utils
 openpyxl
 msal
 python-stdnum
+streamlit-aggrid
