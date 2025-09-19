@@ -22,7 +22,10 @@ def get_files_from_sharepoint():
     
     prenotazioni_data = nav.download_file(site_id, drive_id, "General/PRENOTAZIONI_BI/prenotazioni.xlsx")
     soggetti_data = nav.download_file(site_id, drive_id, "General/PRENOTAZIONI_BI/soggetti.parquet")
+    utenza = nav.download_file(site_id, drive_id, "General/PRENOTAZIONI_BI/utenza.xlsx")
     
+
+    df_utenza = pd.read_excel(io.BytesIO(utenza["content"]))
     df = pd.read_excel(io.BytesIO(prenotazioni_data['content']))
         
     if 'id' not in df.columns:
@@ -30,7 +33,7 @@ def get_files_from_sharepoint():
     
     df_soggetti = pd.read_parquet(io.BytesIO(soggetti_data['content']))
     
-    return df, df_soggetti
+    return df, df_soggetti, df_utenza
 
 def prepare_data(df):
     colonne = [
@@ -54,7 +57,7 @@ def get_navigator():
     return nav
 
 def main():
-    df, df_soggetti = get_files_from_sharepoint()
+    df, df_soggetti, _= get_files_from_sharepoint()
     df = prepare_data(df)
     
     if 'df_full' not in st.session_state:
