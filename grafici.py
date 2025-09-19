@@ -1,4 +1,4 @@
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
+from st_aggrid import AgGrid, GridOptionsBuilder
 import streamlit as st
 import pandas as pd
 

@@ -65,7 +65,7 @@ def home_admin(df, nav, df_full):
                     buffer.seek(0)
                     file_content = buffer.getvalue()
                     file_data = {
-                        'filename': "General/REPORT INCASSI/SOFTWARE INCASSI/prenotazioni.xlsx",
+                        'filename': "General/PRENOTAZIONI_BI/prenotazioni.xlsx",
                         'content': file_content,
                         'size': len(file_content)
                     }

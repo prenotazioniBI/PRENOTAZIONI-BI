@@ -20,8 +20,8 @@ def get_files_from_sharepoint():
     site_id = nav.get_site_id()
     drive_id, _ = nav.get_drive_id(site_id)
     
-    prenotazioni_data = nav.download_file(site_id, drive_id, "General/REPORT INCASSI/SOFTWARE INCASSI/prenotazioni.xlsx")
-    soggetti_data = nav.download_file(site_id, drive_id, "General/REPORT INCASSI/SOFTWARE INCASSI/soggetti.parquet")
+    prenotazioni_data = nav.download_file(site_id, drive_id, "General/PRENOTAZIONI_BI/prenotazioni.xlsx")
+    soggetti_data = nav.download_file(site_id, drive_id, "General/PRENOTAZIONI_BI/soggetti.parquet")
     
     df = pd.read_excel(io.BytesIO(prenotazioni_data['content']))
         

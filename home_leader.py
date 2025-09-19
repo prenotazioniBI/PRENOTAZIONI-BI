@@ -178,7 +178,7 @@ def home_Teamleader(df, df_soggetti, nav):
                         buffer.seek(0)
                         file_content = buffer.getvalue()
                         file_data = {
-                            'filename': "General/REPORT INCASSI/SOFTWARE INCASSI/prenotazioni.xlsx",
+                            'filename': "General/PRENOTAZIONI_BI/prenotazioni.xlsx",
                             'content': file_content,
                             'size': len(file_content)
                         }
