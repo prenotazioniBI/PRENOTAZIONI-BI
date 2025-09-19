@@ -76,7 +76,7 @@ def authentication():
 
         if not submit:
             return None, None
-        df_utenza = get_files_from_sharepoint()
+        _, _A, df_utenza = get_files_from_sharepoint()
         df = df_utenza.copy()
         df.columns = df.columns.str.strip()
 
@@ -100,7 +100,6 @@ def authentication():
 
 
 def main():
-    st.cache_data.clear()
     df, df_soggetti, df_utenza = get_files_from_sharepoint()
     df = prepare_data(df)
     
