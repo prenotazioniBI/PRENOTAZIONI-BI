@@ -40,7 +40,7 @@ def menu_utente(df, servizi_scelti, nav):
         else:
             errore = True
             st.error(msg)
-            time.sleep(2)
+            time.sleep(1)
             st.rerun()
 
 
