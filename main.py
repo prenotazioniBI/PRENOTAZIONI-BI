@@ -20,7 +20,7 @@ CLIENT_SECRET = st.secrets["CLIENT_SECRET"]
 
 
 
-@st.cache_data(show_spinner="Scarico dati da SharePoint...")  
+@st.cache_data(show_spinner="Scarico dati da Sharepoint...")  
 def get_files_from_sharepoint():
     nav = SharePointNavigator(TENANT_ID, CLIENT_ID, CLIENT_SECRET)
     nav.login()
