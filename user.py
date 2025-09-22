@@ -1,7 +1,7 @@
 from datetime import datetime
 from excel_funzioni import salva_richiesta
 import streamlit as st
-
+import time
 
 
 def menu_utente(df, servizi_scelti, nav):
@@ -37,10 +37,12 @@ def menu_utente(df, servizi_scelti, nav):
         if ok:
             richieste_salvate += 1
             st.success(msg)
-
         else:
             errore = True
-            st.warning(msg)
+            st.error(msg)
+            time.sleep(2)
+            st.rerun()
+
 
     if not errore and richieste_salvate > 0:
         return df, True, msg

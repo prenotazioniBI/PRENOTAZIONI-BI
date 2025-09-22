@@ -37,7 +37,6 @@ def visualizza_richieste_per_gestore(df, username):
     return richieste_utente[colonne_presenti]
 
 
- 
 def salva_richiesta(
     df,
     portafoglio,
@@ -57,20 +56,40 @@ def salva_richiesta(
     n_richieste,
     rifatturazione,
     tot_posizioni,
-    data_richiesta, 
+    data_richiesta,
     rifiutata,
     nav
 ):
     oggi = datetime.now()
     tre_mesi_fa = oggi - timedelta(days=90)
-    mask = (df["C.F."].astype(str).str.strip() == str(cf).strip()) & \
-        (df["NOME SERVIZIO"].astype(str).str.strip() == str(nome_servizio).strip())
     
-    for data_str in df.loc[mask, "DATA RICHIESTA"]:
-        data_richiesta = pd.to_datetime(data_str, dayfirst=True, errors="coerce")
-        if pd.notnull(data_richiesta) and data_richiesta >= tre_mesi_fa:
-            return df, False, f"Richiesta già presente negli ultimi 3 mesi ({data_richiesta.date()}) - {nome_servizio}"
-
+    # Normalizza i valori per il confronto
+    cf_normalizzato = str(cf).strip().upper()
+    nome_servizio_normalizzato = str(nome_servizio).strip().upper()
+    
+    # Crea la mask per trovare righe con stesso CF e stesso nome servizio
+    mask = (df["C.F."].astype(str).str.strip().str.upper() == cf_normalizzato) & \
+           (df["NOME SERVIZIO"].astype(str).str.strip().str.upper() == nome_servizio_normalizzato)
+    
+    # Controlla se esistono richieste negli ultimi 3 mesi
+    righe_trovate = df.loc[mask]
+    
+    if not righe_trovate.empty:
+        for idx, row in righe_trovate.iterrows():
+            data_str = row["DATA RICHIESTA"]
+            try:
+                if isinstance(data_str, str):
+                    data_richiesta_esistente = pd.to_datetime(data_str, dayfirst=True, errors="coerce")
+                else:
+                    data_richiesta_esistente = pd.to_datetime(data_str, errors="coerce")
+                
+                if pd.notnull(data_richiesta_esistente) and data_richiesta_esistente >= tre_mesi_fa:
+                    return df, False, f"Richiesta già presente negli ultimi 3 mesi ({data_richiesta_esistente.date()}) - {nome_servizio}"
+            except Exception as e:
+                print(f"Errore nel parsing della data: {data_str}, errore: {e}")
+                continue
+    
+    # Se arriviamo qui, possiamo aggiungere la nuova richiesta
     riga = {
         "PORTAFOGLIO": portafoglio,
         "CENTRO DI COSTO": centro_costo,
@@ -94,15 +113,19 @@ def salva_richiesta(
         "SERVIZIO RICHIESTO": "Richiesta singola gestore"
     }
     
-    df_completo = pd.concat([df, pd.DataFrame([riga])], ignore_index=True)
-    if "id" not in df_completo.columns:
-        df_completo["id"] = range(1, len(df_completo) + 1)
-    else:
-        df_completo["id"] = range(1, len(df_completo) + 1)
+    # Crea una copia del DataFrame originale e aggiungi la nuova riga
+    df_completo = df.copy()
+    df_completo = pd.concat([df_completo, pd.DataFrame([riga])], ignore_index=True)
+    
+    # Rigenera gli ID
+    df_completo["id"] = range(1, len(df_completo) + 1)
+    
+    # Salva il file
     buffer = BytesIO()
     df_completo.to_excel(buffer, index=False)
     buffer.seek(0)
     file_content = buffer.getvalue()
+    
     file_data = {
         'filename': "General/PRENOTAZIONI_BI/prenotazioni.xlsx",
         'content': file_content,
