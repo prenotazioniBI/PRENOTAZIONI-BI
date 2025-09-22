@@ -36,7 +36,6 @@ def visualizza_richieste_per_gestore(df, username):
     richieste_utente[colonne_da_mostrare] = richieste_utente[colonne_da_mostrare].fillna("   -    ")
     return richieste_utente[colonne_presenti]
 
-
 def salva_richiesta(
     df,
     portafoglio,
@@ -63,17 +62,15 @@ def salva_richiesta(
     oggi = datetime.now()
     tre_mesi_fa = oggi - timedelta(days=90)
     
-    # Normalizza i valori per il confronto
     cf_normalizzato = str(cf).strip().upper()
     nome_servizio_normalizzato = str(nome_servizio).strip().upper()
     
-    # Crea la mask per trovare righe con stesso CF e stesso nome servizio
     mask = (df["C.F."].astype(str).str.strip().str.upper() == cf_normalizzato) & \
            (df["NOME SERVIZIO"].astype(str).str.strip().str.upper() == nome_servizio_normalizzato)
     
-    # Controlla se esistono richieste negli ultimi 3 mesi
     righe_trovate = df.loc[mask]
     
+    # CONTROLLO DUPLICATI: se trovo un duplicato recente, BLOCCO tutto e restituisco DataFrame originale
     if not righe_trovate.empty:
         for idx, row in righe_trovate.iterrows():
             data_str = row["DATA RICHIESTA"]
@@ -84,12 +81,14 @@ def salva_richiesta(
                     data_richiesta_esistente = pd.to_datetime(data_str, errors="coerce")
                 
                 if pd.notnull(data_richiesta_esistente) and data_richiesta_esistente >= tre_mesi_fa:
+                    # IMPORTANTE: restituisco il DataFrame ORIGINALE inalterato
                     return df, False, f"Richiesta già presente negli ultimi 3 mesi ({data_richiesta_esistente.date()}) - {nome_servizio}"
+                    
             except Exception as e:
                 print(f"Errore nel parsing della data: {data_str}, errore: {e}")
                 continue
     
-    # Se arriviamo qui, possiamo aggiungere la nuova richiesta
+    # Solo se non ci sono duplicati, procedo con l'aggiunta
     riga = {
         "PORTAFOGLIO": portafoglio,
         "CENTRO DI COSTO": centro_costo,

@@ -67,14 +67,17 @@ def get_navigator():
 
 def authentication():
     df, _, df_utenza = get_files_from_sharepoint()
+    df_utenza.columns = df_utenza.columns.str.strip().str.lower()
 
     col1, col2, col3 = st.columns(3)
     with col2:
         st.title("Prenotazioni BI")
+        gestori = df_utenza["username"].dropna().unique().tolist()
         with st.form(key="login_form_unique"):
-            username = st.text_input("NOME e COGNOME").strip()
+            username = st.selectbox("Seleziona utente", gestori).strip()
             password = st.text_input("PASSWORD", type="password").strip()
             submit = st.form_submit_button("Login")
+
 
         if not submit:
             st.stop()
@@ -91,9 +94,15 @@ def authentication():
         if utente.empty:
             st.error("Credenziali errate o utente non attivo.")
             return None, None
-
-        ruolo = utente.iloc[0]["ruolo"]
         username = utente.iloc[0]["username"]
+
+
+        if username == "Filippo Facibeni":
+            ruolo = "admin"
+        elif username in ["Nicoletta Valanzano", "Simona Tampelli", "Marco Gabelli", "Roberto Nicoli"]:
+            ruolo = "team leader"
+        else:
+            ruolo = utente.iloc[0].get("ruolo", "utente")
 
         st.success(f"Accesso come {ruolo}. Benvenuto, {username}!")
         return ruolo, username

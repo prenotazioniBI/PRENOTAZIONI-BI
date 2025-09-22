@@ -4,15 +4,23 @@ import streamlit as st
 import time
 
 
+
 def menu_utente(df, servizi_scelti, nav):
     user = st.session_state.get("user")
     dati_banner = st.session_state.get("richiesta")
-    df = df.copy()
+    
+    # IMPORTANTE: conservo il DataFrame originale per i casi di errore
+    df_originale = df.copy()
+    df_corrente = df.copy()
+    
     richieste_salvate = 0
     errore = False
+    messaggi_errore = []
+    messaggi_successo = []
+    
     for servizio in servizi_scelti:
-        df, ok, msg = salva_richiesta(
-            df,
+        df_temp, ok, msg = salva_richiesta(
+            df_corrente,
             portafoglio=dati_banner.get("portafoglio", ""),
             centro_costo="", 
             gestore=user.get("username", ""),
@@ -32,19 +40,26 @@ def menu_utente(df, servizi_scelti, nav):
             tot_posizioni=0,
             data_richiesta=datetime.now().strftime("%d/%m/%Y %H:%M"),
             rifiutata="",
-            nav = nav
+            nav=nav
         )
+        
         if ok:
+            df_corrente = df_temp
             richieste_salvate += 1
+            messaggi_successo.append(msg)
             st.success(msg)
         else:
             errore = True
+            messaggi_errore.append(msg)
             st.error(msg)
-            time.sleep(1)
-            st.rerun()
 
 
     if not errore and richieste_salvate > 0:
-        return df, True, msg
+
+        return df_corrente, True, f"Salvate {richieste_salvate} richieste con successo"
+    elif richieste_salvate > 0 and errore:
+
+        return df_corrente, True, f"Salvate {richieste_salvate} richieste. Alcune erano duplicate."
     else:
-        return df, False, msg
+
+        return df_originale, False, "Nessuna richiesta salvata - tutte erano duplicate o in errore"
