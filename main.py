@@ -66,6 +66,9 @@ def get_navigator():
 
 
 def authentication():
+    st.cache_data.clear()
+    df, _, df_utenza = get_files_from_sharepoint()
+
     col1, col2, col3 = st.columns(3)
     with col2:
         st.title("Prenotazioni BI")
@@ -75,8 +78,8 @@ def authentication():
             submit = st.form_submit_button("Login")
 
         if not submit:
-            return None, None
-        _, _A, df_utenza = get_files_from_sharepoint()
+            st.stop()
+
         df = df_utenza.copy()
         df.columns = df.columns.str.strip()
 

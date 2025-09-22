@@ -124,7 +124,6 @@ def mostra_df_filtrato(df):
         "C.F.",
         "GESTORE", 
         "PORTAFOGLIO",
-        "PROVIDER",
         "NOMINATIVO POSIZIONE",
         "NDG DEBITORE",
         "NOMINATIVO RICERCA",
