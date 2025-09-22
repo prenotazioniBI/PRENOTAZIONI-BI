@@ -70,7 +70,7 @@ def authentication():
     with col2:
         st.title("Prenotazioni BI")
         with st.form(key="login_form_unique"):
-            username = st.text_input("COGNOME NOME").strip()
+            username = st.text_input("NOME e COGNOME").strip()
             password = st.text_input("PASSWORD", type="password").strip()
             submit = st.form_submit_button("Login")
 
