@@ -80,7 +80,7 @@ def home_Teamleader(df, df_soggetti, nav):
         df_template = pd.DataFrame({
             "PORTAFOGLIO": pd.Series(dtype="str"),
             "GESTORE": pd.Series(dtype="str"),
-            "NDG DEBITORE": pd.Series(dtype="int"),
+            "NDG DEBITORE": pd.Series(dtype="str"),
             "NOMINATIVO POSIZIONE": pd.Series(dtype="str"),
             "C.F.": pd.Series(dtype="str"),
         })
