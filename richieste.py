@@ -45,16 +45,17 @@ def banner_richiesta_utente(df_soggetti):
             "Lotto Ragusa 4",
             "Lotto UnipolRec 1"
             ]
-    st.write(f"Compila i campi necessari")
-    portafoglio = st.selectbox("PORTAFOGLIO", portafogli)
+    st.write(f"Inserisci dati:")
     cf = st.text_input("CODICE FISCALE o P.IVA *")
-    ndg_debitore = st.text_input("NDG DEBITORE")
-    nominativo_posizione = st.text_input("NOMINATIVO POSIZIONE")
-    ndg_nominativo_ricercato = st.text_input("NDG NOMINATIVO RICERCATO")
-    nominativo_ricerca = st.text_input("NOMINATIVO RICERCA")
+    # ndg_debitore = st.text_input("NDG DEBITORE")
+    # nominativo_posizione = st.text_input("NOMINATIVO POSIZIONE")
+    # ndg_nominativo_ricercato = st.text_input("NDG NOMINATIVO RICERCATO")
+    # nominativo_ricerca = st.text_input("NOMINATIVO RICERCA")
+    # portafoglio = st.selectbox("PORTAFOGLIO", portafogli)
     col1, _ = st.columns(2)
     avanti = col1.button("Avanti")
     df_soggetti = df_soggetti.copy()
+
 
     if avanti:
         if not cf:
@@ -63,24 +64,25 @@ def banner_richiesta_utente(df_soggetti):
         is_cf = codicefiscale.is_valid(cf)
         is_iva = iva.is_valid(cf)
         if not (is_cf or is_iva):
-            st.warning("CODICE FISCALE o PARTITA IVA NON VALIDO.")
+            st.warning("CODICE FISCALE o P.IVA NON VALIDO.")
             st.stop()
         if cf in df_soggetti["codiceFiscale"].astype(str).values:
             st.success("Soggetto già censito")
+            soggetto = df_soggetti[df_soggetti["codiceFiscale"].astype(str) == cf].iloc[0]
+            st.session_state.richiesta = {
+                "cf": cf,
+                "portafoglio": soggetto["portafoglio"],
+                "ndg_debitore": soggetto["ndg"],
+                "nominativo_posizione": soggetto["intestazione"],
+                "ndg_nominativo_ricercato": soggetto["ndg_Soggetto"],
+                "nominativo_ricerca": soggetto["nomeCompleto"]
+            }
+            st.success("Dati inseriti correttamente.")
+            st.session_state["active_tab"] = 1
+            st.rerun()
         else:
             st.error("Soggetto mai censito")
             st.stop()
-        st.session_state.richiesta = {
-            "cf": cf,
-            "portafoglio": portafoglio,
-            "ndg_debitore": ndg_debitore,
-            "nominativo_posizione": nominativo_posizione,
-            "ndg_nominativo_ricercato": ndg_nominativo_ricercato,
-            "nominativo_ricerca": nominativo_ricerca
-        }
-        st.success("Dati inseriti correttamente.")
-        st.session_state["active_tab"] = 1
-        st.rerun()
 
 
 
