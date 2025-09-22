@@ -66,7 +66,6 @@ def get_navigator():
 
 
 def authentication():
-    st.cache_data.clear()
     df, _, df_utenza = get_files_from_sharepoint()
 
     col1, col2, col3 = st.columns(3)
