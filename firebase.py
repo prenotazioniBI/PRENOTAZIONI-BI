@@ -1,4 +1,4 @@
-from firebase_admin import firestore, credentials, auth
+from firebase_admin import auth
 import streamlit as st
 import requests
 
