@@ -5,19 +5,22 @@ import pandas as pd
 from sharepoint_utils import SharePointNavigator
 import io
 from home_admin import home_admin
+from firebase_admin import credentials, auth
+import firebase_admin
+from firebase import firebase_register, firebase_login, firebase_forgot_password
 
+
+if not firebase_admin._apps:
+    cred = credentials.Certificate(dict(st.secrets["firebase_key"]))
+    firebase_admin.initialize_app(cred)
 
 
 st.set_page_config(page_title="Prenotazioni BI", layout="wide")
 
 
-
-
 TENANT_ID = st.secrets["TENANT_ID"]
 CLIENT_ID = st.secrets["CLIENT_ID"]
 CLIENT_SECRET = st.secrets["CLIENT_SECRET"]
-
-
 
 
 @st.cache_data(show_spinner="Scarico dati da Sharepoint...")  
@@ -64,51 +67,61 @@ def get_navigator():
     return nav
 
 
-
+SPECIAL_USERS = {
+    "simona.tampelli@fbs.it":   ("team leader", "Simona Tampelli"),
+    "marco.gabelli@fbs.it":     ("team leader", "Marco Gabelli"),
+    "roberto.nicoli@fbs.it":    ("team leader", "Roberto Nicoli"),
+    "nicoletta.valanzano@fbs.it": ("team leader", "Nicoletta Valanzano"),
+    "filippo.facibeni@fbs.it":  ("admin", "Filippo Facibeni"),
+}
 def authentication():
-    df, _, df_utenza = get_files_from_sharepoint()
-    df_utenza.columns = df_utenza.columns.str.strip().str.lower()
-
     col1, col2, col3 = st.columns(3)
     with col2:
-        st.title("Prenotazioni BI")
-        gestori = df_utenza["username"].dropna().unique().tolist()
+        st.title("Prenotazioni BI")     
+        menu = st.selectbox("Scegli azione", options=["Login", "Crea account", "Password dimenticata"])
         with st.form(key="login_form_unique"):
-            username = st.selectbox("Seleziona utente", gestori).strip()
-            password = st.text_input("PASSWORD", type="password").strip()
-            submit = st.form_submit_button("Login")
+            email = st.text_input("Email Aziendale", placeholder="nome.cognome@fbs.it")
+            password = None
+            if menu == "Crea account":
+                password = st.text_input("Crea Password", type="password")
+            elif menu == "Login":
+                password = st.text_input("Inserisci Password", type="password")
+            # Nessun campo password per "Password dimenticata"
+            submit = st.form_submit_button("Invia")
+            if not submit:
+                return None, None
 
+            email_norm = email.strip().lower()
 
-        if not submit:
-            st.stop()
+            if menu == "Crea account":
+                username = email_norm.split("@")[0].replace(".", " ").title()
+                ok, msg = firebase_register(email_norm, password)
+                if ok:
+                    st.success(f" Registrato come: {username}")
+                else:
+                    st.error(msg)
+                return None, None
 
-        df = df_utenza.copy()
-        df.columns = df.columns.str.strip()
+            elif menu == "Login":
+                ok, user_info = firebase_login(email_norm, password)
+                if ok:
+                    if email_norm in SPECIAL_USERS:
+                        ruolo, username = SPECIAL_USERS[email_norm]
+                    else:
+                        ruolo = "utente"
+                        username = email_norm.split("@")[0].replace(".", " ").title()
+                    return ruolo, username
+                else:
+                    st.error(user_info)
+                return None, None
 
-        utente = df[
-            (df["username"] == username) &
-            (df["password"].astype(str) == password) &
-            (df["attivo"] == 1)
-        ]
-
-        if utente.empty:
-            st.error("Credenziali errate o utente non attivo.")
-            return None, None
-        username = utente.iloc[0]["username"]
-
-
-        if username == "Filippo Facibeni":
-            ruolo = "admin"
-        elif username in ["Nicoletta Valanzano", "Simona Tampelli", "Marco Gabelli", "Roberto Nicoli"]:
-            ruolo = "team leader"
-        else:
-            ruolo = utente.iloc[0].get("ruolo", "utente")
-
-        st.success(f"Accesso come {ruolo}. Benvenuto, {username}!")
-        return ruolo, username
-
-
-
+            elif menu == "Password dimenticata":
+                ok, msg = firebase_forgot_password(email_norm)
+                if ok:
+                    st.success(msg + " Controlla la tua casella email. Controlla la sezione spam (porebbero volerci alcuni minuti)")
+                else:
+                    st.error(msg)
+                return None, None
 
 def main():
     df, df_soggetti, df_utenza = get_files_from_sharepoint()

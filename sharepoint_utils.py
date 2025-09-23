@@ -14,11 +14,13 @@ CLIENT_SECRET = st.secrets["CLIENT_SECRET"]
 
 # =====================================
 LIBRARY_NAME = "Shared Documents"  
-FOLDER_PATH = "General/REPORT INCASSI/SOFTWARE INCASSI"
+FOLDER_PATH = "General/PRENOTAZIONI_BI"
 SAVE_TOKEN = False
 TOKEN_FILE = "sharepoint_token.json"
 
 # ====================================
+
+
 
 class SharePointNavigator:
     def __init__(self, tenant_id, client_id, client_secret):
@@ -38,7 +40,6 @@ class SharePointNavigator:
     def login(self):
         
         try:
-            # Token cache
             if SAVE_TOKEN and os.path.exists(TOKEN_FILE):
                 with open(TOKEN_FILE, 'r') as f:
                     token_data = json.load(f)

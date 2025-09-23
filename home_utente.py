@@ -69,7 +69,7 @@ def home_utente(df, df_soggetti, nav):
                             for key in ["richiesta", "servizi_scelti", "inserimento_richiesta"]:
                                 if key in st.session_state:
                                     del st.session_state[key]
-                            st.rerun()       
+                        st.rerun()       
 
                 
 
