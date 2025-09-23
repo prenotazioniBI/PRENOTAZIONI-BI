@@ -15,7 +15,7 @@ if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
 
 
-st.set_page_config(page_title="Prenotazioni BI",page_icon="👤" layout="wide")
+st.set_page_config(page_title="Prenotazioni BI",page_icon="👤",layout="wide")
 
 
 TENANT_ID = st.secrets["TENANT_ID"]
