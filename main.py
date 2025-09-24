@@ -118,10 +118,11 @@ def authentication():
             elif menu == "Password dimenticata":
                 ok, msg = firebase_forgot_password(email_norm)
                 if ok:
-                    st.success(msg + " Controlla la tua casella email. Controlla la sezione spam (porebbero volerci alcuni minuti)")
+                    st.success(msg + " Controlla la tua casella email e la sezione spam (porebbero volerci alcuni minuti)")
                 else:
                     st.error(msg)
                 return None, None
+
 
 def main():
     df, df_soggetti, df_utenza = get_files_from_sharepoint()
@@ -137,7 +138,7 @@ def main():
                 "ruolo": ruolo,
                 "username": username
             }
-
+            st.cache_data.clear()
             st.rerun()
         else:
             st.stop()
