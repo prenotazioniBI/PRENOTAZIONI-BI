@@ -52,7 +52,19 @@ def aggrid_pivot(
     )
 
 ########################################## tabella pivot ########################################################
-
+mesi_italiani = [
+    "", "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+    "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+]
+def nome_mese(mese):
+    try:
+        mese_int = int(mese)
+        if 1 <= mese_int <= 12:
+            return mesi_italiani[mese_int]
+        else:
+            return str(mese)
+    except:
+        return str(mese)
 def aggrid_pivot_delta(
                         df,
                         group_col="CENTRO DI COSTO",
@@ -61,6 +73,7 @@ def aggrid_pivot_delta(
                         mese_col="MESE",
                         height=500
                     ):
+
 
     df_clean = df.copy()
     mesi_unici = df_clean[mese_col].dropna().unique()
@@ -153,7 +166,7 @@ def aggrid_pivot_delta(
     
     gb.configure_column(
         str(mese_prec), 
-        headerName=f"Costo {mese_prec}", 
+        headerName=f"Costo {nome_mese(mese_prec)}", 
         width=120, 
         valueFormatter="x.toFixed(2)",
         type="numericColumn"
@@ -161,7 +174,7 @@ def aggrid_pivot_delta(
     
     gb.configure_column(
         str(mese_attuale), 
-        headerName=f"Costo {mese_attuale}", 
+        headerName=f"Costo {nome_mese(mese_attuale)}", 
         width=120, 
         valueFormatter="x.toFixed(2)",
         type="numericColumn"

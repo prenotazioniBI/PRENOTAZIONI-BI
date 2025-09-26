@@ -1,11 +1,12 @@
 import streamlit as st
 from home_utente import home_utente
 from home_leader import home_Teamleader
+from home_analista import home_analista
 import pandas as pd
 from sharepoint_utils import SharePointNavigator
 import io
 from home_admin import home_admin
-from firebase_admin import credentials, auth
+from firebase_admin import credentials
 import firebase_admin
 from firebase import firebase_register, firebase_login, firebase_forgot_password
 
@@ -68,12 +69,14 @@ def get_navigator():
 
 
 SPECIAL_USERS = {
+    "filippo.strocchi@fbs.it": ("analista", "Filippo Strocchi"),
     "simona.tampelli@fbs.it":   ("team leader", "Simona Tampelli"),
     "marco.gabelli@fbs.it":     ("team leader", "Marco Gabelli"),
     "roberto.nicoli@fbs.it":    ("team leader", "Roberto Nicoli"),
     "nicoletta.valanzano@fbs.it": ("team leader", "Nicoletta Valanzano"),
-    "filippo.facibeni@fbs.it":  ("admin", "Filippo Facibeni"),
+    "filippo.facibeni@fbs.it":  ("admin", "Filippo Facibeni")
 }
+
 def authentication():
     col1, col2, col3 = st.columns(3)
     with col2:
@@ -92,6 +95,9 @@ def authentication():
                 return None, None
 
             email_norm = email.strip().lower()
+            if not email_norm.endswith("@fbs.it"):
+                st.error("Email non valida")
+                return None, None
 
             if menu == "Crea account":
                 username = email_norm.split("@")[0].replace(".", " ").title()
@@ -159,6 +165,8 @@ def main():
         home_admin(st.session_state['df_full'], nav, st.session_state['df_full'])
     elif user["ruolo"] == "team leader":
         home_Teamleader(st.session_state['df_full'], df_soggetti, nav)
+    elif user["ruolo"] == "analista":
+        home_analista(st.session_state['df_full'], nav, st.session_state['df_full'])
     else:
         home_utente(st.session_state['df_full'], df_soggetti, nav)
 
