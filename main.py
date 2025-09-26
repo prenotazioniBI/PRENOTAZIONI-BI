@@ -114,11 +114,18 @@ def authentication():
                 else:
                     st.error(user_info)
                 return None, None
-
             elif menu == "Password dimenticata":
                 ok, msg = firebase_forgot_password(email_norm)
                 if ok:
-                    st.success(msg + " Controlla la tua casella email e la sezione spam (porebbero volerci alcuni minuti)")
+                    st.success(msg + " Controlla la tua casella email e la sezione spam (potrebbero volerci alcuni minuti).")
+                    st.markdown(
+                        """
+                        **Non hai ricevuto la mail?**
+                        [Clicca qui per scrivere al supporto](
+                            mailto:filippo.facibeni@fbs.it?subject=Recupero%20password%20Prenotazioni%20BI&body=Non%20ho%20ricevuto%20la%20mail%20di%20reset%20password%20per%20l'account:%20{}.
+                        )
+                        """.format(email_norm)
+                    )
                 else:
                     st.error(msg)
                 return None, None
