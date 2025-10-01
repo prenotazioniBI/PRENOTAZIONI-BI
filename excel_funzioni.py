@@ -179,12 +179,12 @@ def modifica_celle_excel(df, mostra_editor=True):
     if mostra_editor:
         df_copy = df_filtered.copy().reset_index(drop=True)
         df_copy = df_copy.loc[:, ~df_copy.columns.duplicated()]
+        st.write("Valori COSTO prima dell'editor:", df_copy["COSTO"].head(10))
         if 'NDG DEBITORE' in df_copy.columns:
             df_copy['NDG DEBITORE'] = df_copy['NDG DEBITORE'].astype(str)
         # -------------------------------------
         if 'C.F.' in df_copy.columns:
             df_copy['C.F.'] = df_copy['C.F.'].astype(str)
-        # Prepara la colonna COSTO
         if 'COSTO' in df_copy.columns:
             df_copy['COSTO'] = df_copy['COSTO'].fillna('').astype(str)
         if 'NDG NOMINATIVO RICERCATO' in df_copy.columns:
