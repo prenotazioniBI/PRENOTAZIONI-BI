@@ -160,7 +160,8 @@ def mostra_df_filtrato(df):
 
 def mostra_df_filtrato_home_admin(df):
     df = df.copy()
-    
+    if "COSTO" in df.columns:
+        df["COSTO"] = df["COSTO"].fillna("").astype(str)
     df = filtro_evaso(df, key_suffix="home_admin_evaso")
 
     df = filtro_massivo_singolo(df, key_suffix="home_admin_gnuo")
