@@ -3,9 +3,6 @@ from datetime import datetime, timedelta
 import streamlit as st
 from filtro_df import mostra_df_filtrato_home_admin
 from sharepoint_utils import SharePointNavigator
-# funzione che riconosce se una richiesta è gia stata fatta in passato per quel cf (oppure id laweb) 
-# meno di tre mesi fa
-# non controllo se la data sia stringa o date, tanto avendo creata con datetime non c'è rischio che abbia formato diverso   
 from io import BytesIO
 
 
@@ -157,16 +154,18 @@ def visualizza_richieste_Evase(df):
     df = df[colonne_principali] 
     ordino_per_stato = df.sort_values("DATA RICHIESTA", ascending=False)
     return ordino_per_stato
+
+
 def modifica_celle_excel(df, mostra_editor=True):
     df_filtered = mostra_df_filtrato_home_admin(st.session_state['df_full'])
     if df_filtered is None or df_filtered.empty:
         st.warning("Nessun dato disponibile dopo l'applicazione dei filtri.")
         return None
 
-    colonne = ["C.F.", "DATA RICHIESTA", "GESTORE", "INVIATE AL PROVIDER", "PORTAFOGLIO",
+    colonne = ["C.F.", "DATA RICHIESTA", "GESTORE", "COSTO", "INVIATE AL PROVIDER", "PORTAFOGLIO",
                "CENTRO DI COSTO", "NDG DEBITORE", "NOMINATIVO POSIZIONE", 
                "NDG NOMINATIVO RICERCATO", "NOMINATIVO RICERCA", "SERVIZIO RICHIESTO",
-               "NOME SERVIZIO", "PROVIDER", "COSTO", "RIFATTURAZIONE", "RIFIUTATA"]
+               "NOME SERVIZIO", "PROVIDER", "RIFATTURAZIONE", "RIFIUTATA"]
 
     cols_to_show = [col for col in colonne if col in df_filtered.columns]
     if 'id' in df_filtered.columns and 'id' not in cols_to_show:
@@ -183,6 +182,9 @@ def modifica_celle_excel(df, mostra_editor=True):
             df_copy['C.F.'] = df_copy['C.F.'].astype(str)
         if 'NDG NOMINATIVO RICERCATO' in df_copy.columns:
             df_copy['NDG NOMINATIVO RICERCATO'] = df_copy['NDG NOMINATIVO RICERCATO'].fillna('').astype(str)
+        if 'COSTO' in df_copy.columns:
+            df_copy['COSTO'] = df_copy['COSTO'].astype(str)
+        
         edited_df = st.data_editor(
             df_copy,
             num_rows="dynamic",
@@ -199,7 +201,7 @@ def modifica_celle_excel(df, mostra_editor=True):
                 "RIFATTURAZIONE": st.column_config.SelectboxColumn("RIFATTURAZIONE", options=["", "SI", "NO"], required=False),
                 "INVIATE AL PROVIDER": st.column_config.DateColumn("INVIATE AL PROVIDER", format="DD.MM.YYYY", required=False),
                 "CENTRO DI COSTO": st.column_config.SelectboxColumn("CENTRO DI COSTO", options=["ACERO SPV", "CLESSIDRA", "CF PLUS", "FBS"], required=False), 
-                "COSTO": st.column_config.SelectboxColumn("COSTO", options=["", "11", "2,9", "1,1", "19,5", "0,6", "50", "2,3", "15"], required=False),
+                "COSTO": st.column_config.TextColumn("COSTO", required=False),
                 "PORTAFOGLIO": st.column_config.SelectboxColumn("PORTAFOGLIO", options=[
                     "", "Lotto Acero 1", "Lotto Banca di Imola 2", "Lotto Banca Imola", 
                     "Lotto Banca Pop Valconca", "Lotto Banca Pop Valconca - Acquisto", 
