@@ -216,10 +216,6 @@ def modifica_celle_excel(df, mostra_editor=True):
             }
         )
         
-        if 'COSTO' in edited_df.columns:
-            edited_df['COSTO'] = edited_df['COSTO'].replace('', None)
-            edited_df['COSTO'] = edited_df['COSTO'].astype(str).str.replace(',', '.')
-            edited_df['COSTO'] = pd.to_numeric(edited_df['COSTO'], errors='coerce')
             
         return edited_df
     
