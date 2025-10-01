@@ -41,6 +41,13 @@ def home_admin(df, nav, df_full):
                 salva = st.button("Salva modifiche", key="salva_modifiche_excel")
             if "RIFIUTATA" in st.session_state['df_full'].columns:
                 st.session_state['df_full']["RIFIUTATA"] = st.session_state['df_full']["RIFIUTATA"].fillna("").replace({"NO": ""})
+            if "RIFATTURAZIONE" in st.session_state['df_full'].columns:
+                    st.session_state['df_full']["RIFATTURAZIONE"] = (
+                        st.session_state['df_full']["RIFATTURAZIONE"]
+                        .fillna("")
+                        .replace({"NO": ""})
+                        .astype(str)
+                    )
             if "COSTO" in st.session_state['df_full'].columns:
                 st.session_state['df_full']["COSTO"] = (
                     st.session_state['df_full']["COSTO"]
