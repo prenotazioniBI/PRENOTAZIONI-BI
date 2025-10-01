@@ -159,7 +159,6 @@ def visualizza_richieste_Evase(df):
     return ordino_per_stato
 
 def modifica_celle_excel(df, mostra_editor=True):
-    st.write("Valori COSTO all'origine:", df["COSTO"].head(10))
     df_filtered = mostra_df_filtrato_home_admin(st.session_state['df_full'])
     
     if df_filtered is None or df_filtered.empty:
@@ -190,7 +189,7 @@ def modifica_celle_excel(df, mostra_editor=True):
             df_copy['COSTO'] = df_copy['COSTO'].fillna('').astype(str)
         if 'NDG NOMINATIVO RICERCATO' in df_copy.columns:
             df_copy['NDG NOMINATIVO RICERCATO'] = df_copy['NDG NOMINATIVO RICERCATO'].fillna('').astype(str)
-        
+        st.write("Valori COSTO all'origine:", df["COSTO"].head(10))
         edited_df = st.data_editor(
             df_copy,
             num_rows="dynamic",
