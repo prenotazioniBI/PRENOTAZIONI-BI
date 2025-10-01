@@ -159,6 +159,7 @@ def visualizza_richieste_Evase(df):
     return ordino_per_stato
 
 def modifica_celle_excel(df, mostra_editor=True):
+    st.write("Valori COSTO all'origine:", df["COSTO"].head(10))
     df_filtered = mostra_df_filtrato_home_admin(st.session_state['df_full'])
     
     if df_filtered is None or df_filtered.empty:
