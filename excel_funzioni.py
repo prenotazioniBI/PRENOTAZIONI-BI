@@ -157,10 +157,8 @@ def visualizza_richieste_Evase(df):
     df = df[colonne_principali] 
     ordino_per_stato = df.sort_values("DATA RICHIESTA", ascending=False)
     return ordino_per_stato
-
 def modifica_celle_excel(df, mostra_editor=True):
     df_filtered = mostra_df_filtrato_home_admin(st.session_state['df_full'])
-    st.write("Valori COSTO all'origine:", df_filtered["COSTO"].head(10))
     if df_filtered is None or df_filtered.empty:
         st.warning("Nessun dato disponibile dopo l'applicazione dei filtri.")
         return None
@@ -179,17 +177,12 @@ def modifica_celle_excel(df, mostra_editor=True):
     if mostra_editor:
         df_copy = df_filtered.copy().reset_index(drop=True)
         df_copy = df_copy.loc[:, ~df_copy.columns.duplicated()]
-        st.write("Valori COSTO prima dell'editor:", df_copy["COSTO"].head(10))
         if 'NDG DEBITORE' in df_copy.columns:
             df_copy['NDG DEBITORE'] = df_copy['NDG DEBITORE'].astype(str)
-        # -------------------------------------
         if 'C.F.' in df_copy.columns:
             df_copy['C.F.'] = df_copy['C.F.'].astype(str)
-        if 'COSTO' in df_copy.columns:
-            df_copy['COSTO'] = df_copy['COSTO'].fillna('').astype(str)
         if 'NDG NOMINATIVO RICERCATO' in df_copy.columns:
             df_copy['NDG NOMINATIVO RICERCATO'] = df_copy['NDG NOMINATIVO RICERCATO'].fillna('').astype(str)
-        st.write("Valori COSTO all'origine:", df["COSTO"].head(10))
         edited_df = st.data_editor(
             df_copy,
             num_rows="dynamic",
