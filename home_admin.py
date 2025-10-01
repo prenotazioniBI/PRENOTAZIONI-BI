@@ -48,12 +48,6 @@ def home_admin(df, nav, df_full):
                         .replace({"NO": ""})
                         .astype(str)
                     )
-            if "COSTO" in st.session_state['df_full'].columns:
-                st.session_state['df_full']["COSTO"] = (
-                    st.session_state['df_full']["COSTO"]
-                    .fillna("")
-                    .astype(str)
-                )
             edited_df = modifica_celle_excel(st.session_state['df_full'])
             if salva:
                 if edited_df is None or edited_df.empty:
