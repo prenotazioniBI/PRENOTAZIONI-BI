@@ -74,7 +74,8 @@ SPECIAL_USERS = {
     "marco.gabelli@fbs.it":     ("team leader", "Marco Gabelli"),
     "roberto.nicoli@fbs.it":    ("team leader", "Roberto Nicoli"),
     "nicoletta.valanzano@fbs.it": ("team leader", "Nicoletta Valanzano"),
-    "filippo.facibeni@fbs.it":  ("admin", "Filippo Facibeni")
+    "filippo.facibeni@fbs.it":  ("admin", "Filippo Facibeni"),
+    "ICT@fbs.it":  ("admin", "ICT")
 }
 
 def authentication():
