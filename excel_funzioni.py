@@ -203,7 +203,7 @@ def modifica_celle_excel(df, mostra_editor=True):
                 "NDG NOMINATIVO RICERCATO": st.column_config.TextColumn("NDG NOMINATIVO RICERCATO", required=False),
                 "NOMINATIVO POSIZIONE": st.column_config.TextColumn("NOMINATIVO POSIZIONE", required=False), 
                 "NDG DEBITORE": st.column_config.TextColumn("NDG DEBITORE", required=False),
-                "RIFATTURAZIONE": st.column_config.SelectboxColumn("RIFATTURAZIONE", options=["SI", "NO"], required=False),
+                "RIFATTURAZIONE": st.column_config.SelectboxColumn("RIFATTURAZIONE", options=["", "SI", "NO"], required=False),
                 "INVIATE AL PROVIDER": st.column_config.DateColumn("INVIATE AL PROVIDER", format="DD.MM.YYYY", required=False),
                 "CENTRO DI COSTO": st.column_config.SelectboxColumn("CENTRO DI COSTO", options=["ACERO SPV", "CLESSIDRA", "CF PLUS", "FBS"], required=False), 
                 "COSTO": st.column_config.SelectboxColumn(label="COSTO (€)", options=["", "11", "2,9", "1,1", "19,5", "0,6", "50", "2,3", "15"], required=False),
@@ -219,7 +219,7 @@ def modifica_celle_excel(df, mostra_editor=True):
                     "Lotto Pop Npl 2018", "Lotto Pop Npl 2018 2", "Lotto Pop Npl 2018 3",
                     "Lotto Ragusa", "Lotto Ragusa 2", "Lotto Ragusa 3", "Lotto Ragusa 4", 
                     "Lotto UnipolRec 1"], required=False),
-                "RIFIUTATA": st.column_config.SelectboxColumn("RIFIUTATA", options=["", "Codice Fiscale non valido", "Altra motivazione"], required=False)
+                "RIFIUTATA": st.column_config.SelectboxColumn("RIFIUTATA", options=["", "SI"], required=False)
             }
         )
         

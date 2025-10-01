@@ -39,7 +39,9 @@ def home_admin(df, nav, df_full):
             with col3: 
                 st.write("") 
                 salva = st.button("Salva modifiche", key="salva_modifiche_excel")
-            
+            if "RIFIUTATA" in st.session_state['df_full'].columns:
+                st.session_state['df_full']["RIFIUTATA"] = st.session_state['df_full']["RIFIUTATA"].fillna("").replace({"NO": ""})
+
             edited_df = modifica_celle_excel(st.session_state['df_full'])
             if salva:
                 if edited_df is None or edited_df.empty:
