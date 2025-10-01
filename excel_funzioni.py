@@ -206,7 +206,7 @@ def modifica_celle_excel(df, mostra_editor=True):
                 "RIFATTURAZIONE": st.column_config.SelectboxColumn("RIFATTURAZIONE", options=["", "SI", "NO"], required=False),
                 "INVIATE AL PROVIDER": st.column_config.DateColumn("INVIATE AL PROVIDER", format="DD.MM.YYYY", required=False),
                 "CENTRO DI COSTO": st.column_config.SelectboxColumn("CENTRO DI COSTO", options=["ACERO SPV", "CLESSIDRA", "CF PLUS", "FBS"], required=False), 
-                "COSTO": st.column_config.SelectboxColumn(label="COSTO (€)", options=["", "11", "2,9", "1,1", "19,5", "0,6", "50", "2,3", "15"], required=False),
+                "COSTO": st.column_config.SelectboxColumn("COSTO", options=["", "11", "2,9", "1,1", "19,5", "0,6", "50", "2,3", "15"], required=False),
                 "PORTAFOGLIO": st.column_config.SelectboxColumn("PORTAFOGLIO", options=[
                     "", "Lotto Acero 1", "Lotto Banca di Imola 2", "Lotto Banca Imola", 
                     "Lotto Banca Pop Valconca", "Lotto Banca Pop Valconca - Acquisto", 
