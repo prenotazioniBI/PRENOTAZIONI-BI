@@ -51,11 +51,9 @@ def home_admin(df, nav, df_full):
             if "COSTO" in st.session_state['df_full'].columns:
                 st.session_state['df_full']["COSTO"] = (
                     st.session_state['df_full']["COSTO"]
-                    .replace('', None)
+                    .fillna("")
                     .astype(str)
-                    .str.replace(',', '.')
                 )
-                st.session_state['df_full']["COSTO"] = pd.to_numeric(st.session_state['df_full']["COSTO"], errors='coerce').fillna(0)
             edited_df = modifica_celle_excel(st.session_state['df_full'])
             if salva:
                 if edited_df is None or edited_df.empty:
