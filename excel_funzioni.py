@@ -160,7 +160,7 @@ def visualizza_richieste_Evase(df):
 
 def modifica_celle_excel(df, mostra_editor=True):
     df_filtered = mostra_df_filtrato_home_admin(st.session_state['df_full'])
-    
+    st.write("Valori COSTO all'origine:", df_filtered["COSTO"].head(10))
     if df_filtered is None or df_filtered.empty:
         st.warning("Nessun dato disponibile dopo l'applicazione dei filtri.")
         return None
