@@ -39,8 +39,8 @@ def home_admin(df, nav, df_full):
             with col3: 
                 st.write("") 
                 salva = st.button("Salva modifiche", key="salva_modifiche_excel")
-            if "RIFIUTATA" in st.session_state['df_full'].columns:
-                st.session_state['df_full']["RIFIUTATA"] = st.session_state['df_full']["RIFIUTATA"].fillna("").replace({"NO": ""})
+            if "CONVALIDA TL" in st.session_state['df_full'].columns:
+                st.session_state['df_full']["CONVALIDA TL"] = st.session_state['df_full']["CONVALIDA TL"].fillna("").replace({"NO": ""})
             if "RIFATTURAZIONE" in st.session_state['df_full'].columns:
                     st.session_state['df_full']["RIFATTURAZIONE"] = (
                         st.session_state['df_full']["RIFATTURAZIONE"]
@@ -93,17 +93,30 @@ def home_admin(df, nav, df_full):
             mese_col="MESE",
             height=500)
 
+
             st.subheader("PIVOT")
             df["MESE"] = pd.to_numeric(df["MESE"], errors="coerce").fillna(0).astype(int)
+            df["ANNO"] = pd.to_numeric(df["ANNO"], errors="coerce").fillna(0).astype(int)  # <-- aggiungi questa riga
+
             mesi = df["MESE"].dropna().unique().tolist()
             mesi.sort()
             mesi.insert(0, "Tutti")
-            mese_sel = st.pills("Filtra per mese", mesi)
+            anni = df["ANNO"].dropna().unique().tolist()
+            anni.sort()
+            anni.insert(0, "Tutti")
 
+            col_mese, col_anno = st.columns(2)
+            with col_mese:
+                mese_sel = st.pills("Filtra per mese", mesi)
+            with col_anno:
+                anno_sel = st.pills("Filtra per anno", anni)
+
+            df_filtrato = df
             if mese_sel != "Tutti":
-                df_filtrato = df[df["MESE"] == mese_sel]
-            else:
-                df_filtrato = df
+                df_filtrato = df_filtrato[df_filtrato["MESE"] == mese_sel]
+            if anno_sel != "Tutti":
+                df_filtrato = df_filtrato[df_filtrato["ANNO"] == anno_sel]
+
             col1, spacer, col2 = st.columns([1, 0.1, 1])
             with col1:
                 aggrid_pivot(df_filtrato, "GESTORE", "PORTAFOGLIO", "COSTO", value_name="Totale Costo", group_width=80,sub_width=130,value_width=130,height=500)

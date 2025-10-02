@@ -118,7 +118,13 @@ def mostra_df_filtrato_utente(df):
     st.dataframe(df, use_container_width=True, height=500)
 
 def mostra_df_filtrato(df):
-    df = df[df["INVIATE AL PROVIDER"].isnull()].copy()
+    df = df[
+        ((df["INVIATE AL PROVIDER"].isnull()) | (df["INVIATE AL PROVIDER"] == "")) &
+        (
+            ((df["NOME SERVIZIO"] == "Ricerca eredi accettanti") & (df["CONVALIDA TL"] == "VALIDA")) |
+            ((df["NOME SERVIZIO"] != "Ricerca eredi accettanti") & (df["CONVALIDA TL"].isnull() | (df["CONVALIDA TL"] == "")))
+        )
+    ]
     col1, col2, col3 = st.columns(3)
     columns = [
         "C.F.",

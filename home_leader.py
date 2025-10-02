@@ -6,7 +6,7 @@ from filtro_df import mostra_df_filtrato_home_admin
 import io 
 import datetime
 from datetime import timedelta
-
+from excel_funzioni import modifica_celle_excel_eredi
 
 
 def home_Teamleader(df, df_soggetti, nav):
@@ -14,7 +14,7 @@ def home_Teamleader(df, df_soggetti, nav):
     if not user or user.get("ruolo") != "team leader":
         st.stop()
     st.title("Area Team Leader")
-    selezione = st.sidebar.radio("", ["RICHIESTE", "NUOVA RICHIESTA", "RICHIESTA MASSIVA"])
+    selezione = st.sidebar.radio("", ["RICHIESTE", "NUOVA RICHIESTA", "RICHIESTA MASSIVA", "RINTRACCIO EREDI"])
 
     if selezione == "RICHIESTE":
         st.subheader("Anteprima richieste")
@@ -35,7 +35,7 @@ def home_Teamleader(df, df_soggetti, nav):
                 st.rerun()
         with col2:
             if not st.session_state.get("inserimento_richiesta", False):
-                if st.button("Aggiungi una richiesta"):
+                if st.button("NUOVA RICHIESTA"):
                     st.session_state["inserimento_richiesta"] = True
                     st.rerun()
             else:
@@ -52,14 +52,10 @@ def home_Teamleader(df, df_soggetti, nav):
                         "Ricerca Anagrafica",
                         "Ricerca Telefonica",
                         "Ricerca Anagrafica + Telefono",
-                        "Visura camerale",
-                        "Bilancio",
-                        "Rintraccio Conto corrente",
-                        "Visura Camerale storica",
-                        "Rintraccio Eredi Chiamati con verifica accettazione"
+                        "Rintraccio Conto corrente"
                     ]
                     st.divider()
-                    st.markdown("SELEZIONA RICHIESTA BI:")
+                    st.markdown("TIPOLOGIA RICHIESTA:")
                     servizi_scelti = st.multiselect(
                         " ",
                         richieste,
@@ -155,7 +151,7 @@ def home_Teamleader(df, df_soggetti, nav):
                                 "N. RICHIESTE": "",
                                 "RIFATTURAZIONE": "",
                                 "TOT POSIZIONI": "",
-                                "RIFIUTATA": "",
+                                "CONVALIDA TL": "",
                                 "NDG NOMINATIVO RICERCATO": "",
                                 "NOMINATIVO RICERCA": ""
                             }
@@ -189,3 +185,44 @@ def home_Teamleader(df, df_soggetti, nav):
                             st.success(f"Aggiunte nuove richieste.")                                  
                     else:
                         st.warning("Nessuna nuova richiesta da processare")
+    if selezione == "RINTRACCIO EREDI":
+                col1, col2 = st.columns([0.2,1])
+                with col1:
+                    st.subheader("AGGIORNA")
+                with col2:
+                    st.write("") 
+                    salva = st.button("Salva modifiche", key="salva_modifiche_excel")
+                edited_df = modifica_celle_excel_eredi(st.session_state['df_full'])
+                if salva:
+                    if edited_df is None or edited_df.empty:
+                        st.warning("Nessuna modifica da salvare.")
+                    else:
+                        updated = 0
+                        unmatched = 0
+                        for _, row in edited_df.iterrows():
+                            uid = row.get('id', None)
+                            if pd.isna(uid):
+                                unmatched += 1
+                                continue
+
+                            mask = st.session_state['df_full']['id'] == uid
+                            if mask.any():
+                                cols_to_update = [c for c in edited_df.columns if c != 'id']
+                                st.session_state['df_full'].loc[mask, cols_to_update] = row[cols_to_update].values
+                                updated += mask.sum()
+                            else:
+                                unmatched += 1
+                        buffer = io.BytesIO()
+                        st.session_state['df_full'].to_excel(buffer, index=False)
+                        buffer.seek(0)
+                        file_content = buffer.getvalue()
+                        file_data = {
+                            'filename': "General/PRENOTAZIONI_BI/prenotazioni.xlsx",
+                            'content': file_content,
+                            'size': len(file_content)
+                        }
+                        nav.file_buffer.append(file_data)
+                        nav.upload_file()
+                        st.cache_data.clear()
+                        st.rerun()
+                        st.toast(f"Salvate {updated} modifiche. Non abbinate: {unmatched}")

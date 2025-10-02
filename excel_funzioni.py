@@ -2,7 +2,6 @@ import pandas as pd
 from datetime import datetime, timedelta
 import streamlit as st
 from filtro_df import mostra_df_filtrato_home_admin
-from sharepoint_utils import SharePointNavigator
 from io import BytesIO
 
 
@@ -19,7 +18,7 @@ def visualizza_richieste_per_gestore(df, username):
         "C.F.",
         "NOME SERVIZIO",
         "INVIATE AL PROVIDER",
-        "RIFIUTATA",
+        "CONVALIDA TL",
         "PORTAFOGLIO",
         "NDG DEBITORE",
         "NOMINATIVO POSIZIONE",
@@ -59,14 +58,15 @@ def salva_richiesta(
     nav
 ):
     oggi = datetime.now()
-    tre_mesi_fa = oggi - timedelta(days=90)
+    tre_mesi_fa = oggi - timedelta(days=365)
     mask = (df["C.F."].astype(str).str.strip() == str(cf).strip()) & \
         (df["NOME SERVIZIO"].astype(str).str.strip() == str(nome_servizio).strip())
     
     for data_str in df.loc[mask, "DATA RICHIESTA"]:
         data_richiesta = pd.to_datetime(data_str, dayfirst=True, errors="coerce")
         if pd.notnull(data_richiesta) and data_richiesta >= tre_mesi_fa:
-            return df, False, f"Richiesta già presente negli ultimi 3 mesi ({data_richiesta.date()}) - {nome_servizio}"
+            gestore_str = df.loc[mask, "GESTORE"].iloc[0] if not df.loc[mask, "GESTORE"].empty else ""
+            return df, False, f"Richiesta già fatta il {data_richiesta.date()} - {nome_servizio} - dal gestore {gestore_str}."
 
     riga = {
         "PORTAFOGLIO": portafoglio,
@@ -87,7 +87,7 @@ def salva_richiesta(
         "RIFATTURAZIONE": rifatturazione,
         "TOT POSIZIONI": tot_posizioni,
         "DATA RICHIESTA": data_richiesta,
-        "RIFIUTATA": rifiutata,
+        "CONVALIDA TL": rifiutata,
         "SERVIZIO RICHIESTO": "Richiesta singola gestore"
     }
     
@@ -149,11 +149,40 @@ def visualizza_richieste_Evase(df):
         "NOMINATIVO POSIZIONE",
         "NDG NOMINATIVO RICERCATO",
         "NOMINATIVO RICERCA",
-        "RIFIUTATA"
+        "CONVALIDA TL"
     ]
     df = df[colonne_principali] 
     ordino_per_stato = df.sort_values("DATA RICHIESTA", ascending=False)
     return ordino_per_stato
+
+def modifica_celle_excel_eredi(df, mostra_editor=True):
+    df = df[(df["NOME SERVIZIO"] == "Ricerca eredi accettanti") & (df["CONVALIDA TL"].isnull()) | (df["CONVALIDA TL"] == "")]
+    if not df.empty:
+        colonne = ["C.F.", "DATA RICHIESTA", "GESTORE", "PORTAFOGLIO", "NDG DEBITORE", "NOMINATIVO POSIZIONE", 
+                "NDG NOMINATIVO RICERCATO", "NOMINATIVO RICERCA", "CONVALIDA TL"]
+        cols_to_show = [col for col in colonne if col in df.columns]
+        if 'id' in df.columns and 'id' not in cols_to_show:
+                cols_to_show.append('id')
+        df = df[cols_to_show] 
+        
+        if mostra_editor:
+            df_copy = df.copy().reset_index(drop=True)
+            df_copy = df_copy.loc[:, ~df_copy.columns.duplicated()]
+            edited_df = st.data_editor(
+                df_copy,
+                num_rows="dynamic",
+                height=2000,
+                use_container_width=True,
+                key="editor_admin",
+                column_config={"CONVALIDA TL": st.column_config.SelectboxColumn("CONVALIDA TL", options=["", "VALIDA", "NON VALIDA"], required=False)
+                }
+            )
+            return edited_df
+        return edited_df
+    else:
+        col1, col2, col3 = st.columns(3)
+        with col2:
+            st.warning("NESSUNA RICHIESTA EREDI IN SOSPESO..")
 
 
 def modifica_celle_excel(df, mostra_editor=True):
@@ -165,7 +194,7 @@ def modifica_celle_excel(df, mostra_editor=True):
     colonne = ["C.F.", "DATA RICHIESTA", "GESTORE", "COSTO", "INVIATE AL PROVIDER", "PORTAFOGLIO",
                "CENTRO DI COSTO", "NDG DEBITORE", "NOMINATIVO POSIZIONE", 
                "NDG NOMINATIVO RICERCATO", "NOMINATIVO RICERCA", "SERVIZIO RICHIESTO",
-               "NOME SERVIZIO", "PROVIDER", "RIFATTURAZIONE", "RIFIUTATA"]
+               "NOME SERVIZIO", "PROVIDER", "RIFATTURAZIONE", "CONVALIDA TL"]
 
     cols_to_show = [col for col in colonne if col in df_filtered.columns]
     if 'id' in df_filtered.columns and 'id' not in cols_to_show:
@@ -213,8 +242,7 @@ def modifica_celle_excel(df, mostra_editor=True):
                     "Lotto La Cassa di Ravenna", "Lotto Libra", "Lotto Platinum", 
                     "Lotto Pop Npl 2018", "Lotto Pop Npl 2018 2", "Lotto Pop Npl 2018 3",
                     "Lotto Ragusa", "Lotto Ragusa 2", "Lotto Ragusa 3", "Lotto Ragusa 4", 
-                    "Lotto UnipolRec 1"], required=False),
-                "RIFIUTATA": st.column_config.SelectboxColumn("RIFIUTATA", options=["", "SI"], required=False)
+                    "Lotto UnipolRec 1"], required=False)
             }
         )
         
@@ -245,7 +273,7 @@ def visualizza_richieste_TeamLeader(df):
         "NOMINATIVO POSIZIONE",
         "NDG NOMINATIVO RICERCATO",
         "NOMINATIVO RICERCA",
-        "RIFIUTATA"
+        "CONVALIDA TL"
     ]
     df = df[colonne_principali] 
     ordino_per_stato = df.sort_values("DATA RICHIESTA", ascending=False)

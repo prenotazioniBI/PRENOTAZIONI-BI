@@ -28,7 +28,7 @@ def home_utente(df, df_soggetti, nav):
                         st.rerun()               
         with col2:
             if not st.session_state.get("inserimento_richiesta", False):
-                if st.button("Aggiungi una richiesta"):
+                if st.button("NUOVA RICHIESTA"):
                     st.session_state["inserimento_richiesta"] = True
                     st.rerun()
             else:
@@ -45,15 +45,11 @@ def home_utente(df, df_soggetti, nav):
                             "Ricerca Anagrafica",
                             "Ricerca Telefonica",
                             "Ricerca Anagrafica + Telefono",
-                            "Visura camerale",
-                            "Bilancio",
-                            "Rintraccio Conto corrente",
-                            "Visura Camerale storica",
-                            "Rintraccio Eredi Chiamati con verifica accettazione"
+                            "Rintraccio Conto corrente"
                     ]
                     
                     st.divider()
-                    st.markdown("SELEZIONA RICHIESTA BI:")
+                    st.markdown("TIPOLOGIA RICHIESTA:")
                     servizi_scelti = st.multiselect(
                         " ",
                         richieste,
@@ -69,7 +65,7 @@ def home_utente(df, df_soggetti, nav):
                             for key in ["richiesta", "servizi_scelti", "inserimento_richiesta"]:
                                 if key in st.session_state:
                                     del st.session_state[key]
-                        st.rerun()       
+                        # st.rerun()       
 
                 
 

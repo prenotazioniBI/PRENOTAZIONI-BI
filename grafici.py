@@ -1,7 +1,7 @@
 from st_aggrid import AgGrid, GridOptionsBuilder
 import streamlit as st
 import pandas as pd
-
+import numpy as np
 
 
 def aggrid_pivot(
@@ -15,6 +15,8 @@ def aggrid_pivot(
     value_width=100,
     height=500
 ):
+    df[value_col] = pd.to_numeric(df[value_col], errors="coerce").fillna(0)
+
     df_grouped = df.groupby([group_col, sub_col], as_index=False)[value_col].sum()
     df_grouped[value_col] = df_grouped[value_col].round(2)
     df_counts = df.groupby([group_col, sub_col])["NOME SERVIZIO"].count().reset_index(name="NUM_RICHIESTE")
@@ -32,7 +34,8 @@ def aggrid_pivot(
         "NUM_RICHIESTE": num_richieste
     }
     df_grouped = pd.concat([df_grouped, pd.DataFrame([totale_row])], ignore_index=True)
-
+    df_grouped = df_grouped.applymap(lambda x: float(x) if isinstance(x, (int, float, np.integer, np.floating)) else x)
+    
     gb = GridOptionsBuilder.from_dataframe(df_grouped)
     gb.configure_default_column(editable=False, groupable=True, sortable=True, resizable=True)
     gb.configure_column(group_col, headerName=group_col, hide=True, rowGroup=True, width=group_width, rowGroupPanelShow="always")
@@ -66,16 +69,16 @@ def nome_mese(mese):
     except:
         return str(mese)
 def aggrid_pivot_delta(
-                        df,
-                        group_col="CENTRO DI COSTO",
-                        sub_col="NOME SERVIZIO",
-                        value_col="COSTO",
-                        mese_col="MESE",
-                        height=500
-                    ):
-
-
+    df,
+    group_col="CENTRO DI COSTO",
+    sub_col="NOME SERVIZIO",
+    value_col="COSTO",
+    mese_col="MESE",
+    anno_col = "ANNO",
+    height=500
+):
     df_clean = df.copy()
+    df_clean = df_clean[df_clean[anno_col] == 2025]
     mesi_unici = df_clean[mese_col].dropna().unique()
     try:
         mesi_numerici = pd.to_numeric(mesi_unici, errors='coerce')
@@ -83,14 +86,23 @@ def aggrid_pivot_delta(
     except Exception:
         mesi_ordinati = sorted(mesi_unici)
 
-    if len(mesi_ordinati) < 2:
-        st.error("Servono almeno due mesi per il confronto.")
+    # Widget per selezionare i mesi da visualizzare
+    mesi_italiani = [
+        "", "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+    ]
+    mesi_label = [mesi_italiani[int(m)] if isinstance(m, (int, float)) and 1 <= int(m) <= 12 else str(m) for m in mesi_ordinati]
+    mesi_selezionati = st.multiselect("Seleziona i mesi da visualizzare", mesi_label, default=mesi_label[-2:])
+
+    # Trova i numeri dei mesi selezionati
+    mesi_num = [mesi_ordinati[mesi_label.index(m)] for m in mesi_selezionati if m in mesi_label]
+
+    if len(mesi_num) < 2:
+        st.error("Seleziona almeno due mesi per il confronto.")
         return
 
-    mese_attuale = mesi_ordinati[-1]
-    mese_prec = mesi_ordinati[-2]
-
-    df_filtrato = df_clean[df_clean[mese_col].isin([mese_prec, mese_attuale])].copy()
+    # Filtra il DataFrame per i mesi selezionati
+    df_filtrato = df_clean[df_clean[mese_col].isin(mesi_num)].copy()
 
     # Pivot: centro di costo, servizio, mese
     df_pivot = (
@@ -101,42 +113,37 @@ def aggrid_pivot_delta(
         .reset_index()
     )
 
-    # Assicura che le colonne dei mesi ci siano sempre
-    for mese in [mese_prec, mese_attuale]:
+    # Assicura che le colonne dei mesi selezionati ci siano sempre
+    for mese in mesi_num:
         if mese not in df_pivot.columns:
             df_pivot[mese] = 0.0
         df_pivot[mese] = pd.to_numeric(df_pivot[mese], errors='coerce').fillna(0).round(2)
 
-    # Calcola delta
-    # Calcola delta
+    # Calcola delta tra ultimi due mesi selezionati
+    mese_attuale = mesi_num[-1]
+    mese_prec = mesi_num[-2]
     df_pivot["DELTA"] = (df_pivot[mese_attuale] - df_pivot[mese_prec]).round(2)
 
     # Totali per ogni centro di costo
     totali_cc = (
-        df_pivot.groupby(group_col)[[mese_prec, mese_attuale, "DELTA"]]
+        df_pivot.groupby(group_col)[mesi_num + ["DELTA"]]
         .sum()
         .reset_index()
     )
-    totali_cc[sub_col] = "TOTALE " + totali_cc[group_col]
+    totali_cc[sub_col] = "TOTALE " + totali_cc[group_col].astype(str)
     totali_cc[group_col] = totali_cc[group_col].astype(str)
-    totali_cc = totali_cc[[group_col, sub_col, mese_prec, mese_attuale, "DELTA"]]
+    totali_cc = totali_cc[[group_col, sub_col] + mesi_num + ["DELTA"]]
 
     # Totali generali
-    totale_prec = df_pivot[mese_prec].sum()
-    totale_attuale = df_pivot[mese_attuale].sum()
-    totale_delta = df_pivot["DELTA"].sum()
-    totale_row = {
-        group_col: "TOTALE",
-        sub_col: "",
-        mese_prec: totale_prec,
-        mese_attuale: totale_attuale,
-        "DELTA": totale_delta
-    }
+    totale_row = {group_col: "TOTALE", sub_col: ""}
+    for mese in mesi_num:
+        totale_row[mese] = df_pivot[mese].sum()
+    totale_row["DELTA"] = df_pivot["DELTA"].sum()
 
     # Unisci tutto
     df_pivot = pd.concat([df_pivot, totali_cc, pd.DataFrame([totale_row])], ignore_index=True)
     # Conversione tipi per AgGrid
-    for col in [mese_prec, mese_attuale, "DELTA"]:
+    for col in mesi_num + ["DELTA"]:
         df_pivot[col] = df_pivot[col].astype(float)
     df_pivot[group_col] = df_pivot[group_col].astype(str)
     df_pivot[sub_col] = df_pivot[sub_col].astype(str)
@@ -149,55 +156,32 @@ def aggrid_pivot_delta(
         resizable=True,
         filter=True
     )
-    
+    gb.configure_column(group_col, headerName=group_col, rowGroup=True, width=150, pinned='left', hide=True)
+    gb.configure_column(sub_col, headerName=sub_col, width=180)
+
+    # Configura le colonne dei mesi selezionati
+    for mese in mesi_num:
+        gb.configure_column(
+            str(mese),
+            headerName=f"Costo {mesi_italiani[int(mese)] if isinstance(mese, (int, float)) and 1 <= int(mese) <= 12 else mese}",
+            width=120,
+            valueFormatter="x.toFixed(2)",
+            type="numericColumn"
+        )
     gb.configure_column(
-        group_col, 
-        headerName=group_col, 
-        rowGroup=True, 
-        width=150,
-        pinned='left', hide = True
-    )
-    
-    gb.configure_column(
-        sub_col, 
-        headerName=sub_col, 
-        width=180
-    )
-    
-    gb.configure_column(
-        str(mese_prec), 
-        headerName=f"Costo {nome_mese(mese_prec)}", 
-        width=120, 
-        valueFormatter="x.toFixed(2)",
-        type="numericColumn"
-    )
-    
-    gb.configure_column(
-        str(mese_attuale), 
-        headerName=f"Costo {nome_mese(mese_attuale)}", 
-        width=120, 
-        valueFormatter="x.toFixed(2)",
-        type="numericColumn"
-    )
-    
-    gb.configure_column(
-        "DELTA", 
-        headerName="Delta €", 
-        width=100, 
+        "DELTA",
+        headerName="Delta €",
+        width=100,
         cellStyle={"fontWeight": "bold"},
         valueFormatter="x.toFixed(2)",
         type="numericColumn"
     )
-    
-    
-    # Configurazioni aggiuntive
+
     gb.configure_auto_height(autoHeight=False)
     gb.configure_side_bar(filters_panel=True, columns_panel=True)
     gb.configure_selection('multiple', use_checkbox=True)
-    
     gridOptions = gb.build()
-    
-    # Render AgGrid
+
     grid_response = AgGrid(
         df_pivot,
         gridOptions=gridOptions,
@@ -206,5 +190,4 @@ def aggrid_pivot_delta(
         height=height,
         theme="streamlit"
     )
-        
     return grid_response

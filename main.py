@@ -51,7 +51,7 @@ def prepare_data(df):
         "PORTAFOGLIO", "CENTRO DI COSTO", "GESTORE", "NDG DEBITORE", "NOMINATIVO POSIZIONE",
         "NDG NOMINATIVO RICERCATO", "C.F.", "SERVIZIO RICHIESTO", "NOME SERVIZIO", "PROVIDER",
         "INVIATE AL PROVIDER", "COSTO", "MESE", "ANNO", "RIFATTURAZIONE", "NOMINATIVO RICERCA",
-        "DATA RICHIESTA", "RIFIUTATA"
+        "DATA RICHIESTA", "CONVALIDA TL"
     ]
     if "id" not in df.columns:
         df["id"] = range(1, len(df) + 1)

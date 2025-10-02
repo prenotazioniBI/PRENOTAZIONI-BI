@@ -2,8 +2,6 @@ import streamlit as st
 from stdnum.it import codicefiscale, iva
 import pandas as pd
 
-
-
 @st.dialog("Inserisci nuova richiesta")
 def banner_richiesta_utente(df_soggetti):
     st.write(f"Inserisci dati:")
@@ -11,8 +9,6 @@ def banner_richiesta_utente(df_soggetti):
     col1, _ = st.columns(2)
     avanti = col1.button("Avanti")
     df_soggetti = df_soggetti.copy()
-
-
     if avanti:
         if not cf:
             st.warning("CODICE FISCALE o P.IVA OBBLIGATORIO")
@@ -22,12 +18,48 @@ def banner_richiesta_utente(df_soggetti):
         if not (is_cf or is_iva):
             st.warning("CODICE FISCALE o P.IVA NON VALIDO.")
             st.stop()
-        if cf in df_soggetti["codiceFiscale"].astype(str).values:
-            st.success("Soggetto già censito")
-            soggetto = df_soggetti[df_soggetti["codiceFiscale"].astype(str) == cf].iloc[0]
+        soggetti_cf = df_soggetti[df_soggetti["codiceFiscale"].astype(str) == cf]
+        if "deceduto" in soggetti_cf.columns and (soggetti_cf["deceduto"] == "DECEDUTO").any():
+                st.error("Soggetto deceduto")
+                st.stop()
+        if not soggetti_cf.empty:
+            portafogli = soggetti_cf["portafoglio"].unique().tolist()
+            st.session_state.soggetti_cf = soggetti_cf
+            st.session_state.portafogli = portafogli
+            st.session_state.cf_ok = True
+            st.rerun()
+        else:
+            st.error("Soggetto mai censito")
+            st.stop()
+    if st.session_state.get("cf_ok", False):
+        soggetti_cf = st.session_state.soggetti_cf
+        portafogli = st.session_state.portafogli
+        if len(portafogli) > 1:
+            portafoglio_sel = st.selectbox("Seleziona portafoglio", portafogli)
+            conferma = st.button("Conferma selezione portafoglio")
+            if conferma:
+                soggetto = soggetti_cf[soggetti_cf["portafoglio"] == portafoglio_sel].iloc[0]
+                st.session_state.richiesta = {
+                    "cf": cf,
+                    "portafoglio": portafoglio_sel,
+                    "ndg_debitore": soggetto["ndg"],
+                    "nominativo_posizione": soggetto["intestazione"],
+                    "ndg_nominativo_ricercato": soggetto["ndg_Soggetto"],
+                    "nominativo_ricerca": soggetto["nomeCompleto"]
+                }
+                st.success("Dati inseriti correttamente.")
+                st.session_state["active_tab"] = 1
+                # Pulisci lo stato temporaneo
+                del st.session_state.cf_ok
+                del st.session_state.soggetti_cf
+                del st.session_state.portafogli
+                st.rerun()
+        else:
+            soggetto = soggetti_cf.iloc[0]
+            portafoglio_sel = soggetto["portafoglio"]
             st.session_state.richiesta = {
                 "cf": cf,
-                "portafoglio": soggetto["portafoglio"],
+                "portafoglio": portafoglio_sel,
                 "ndg_debitore": soggetto["ndg"],
                 "nominativo_posizione": soggetto["intestazione"],
                 "ndg_nominativo_ricercato": soggetto["ndg_Soggetto"],
@@ -35,11 +67,7 @@ def banner_richiesta_utente(df_soggetti):
             }
             st.success("Dati inseriti correttamente.")
             st.session_state["active_tab"] = 1
+            del st.session_state.cf_ok
+            del st.session_state.soggetti_cf
+            del st.session_state.portafogli
             st.rerun()
-        else:
-            st.error("Soggetto mai censito")
-            st.stop()
-
-
-
-
