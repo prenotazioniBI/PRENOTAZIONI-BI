@@ -31,13 +31,14 @@ def get_files_from_sharepoint():
     site_id = nav.get_site_id()
     drive_id, _ = nav.get_drive_id(site_id)
     
-    prenotazioni_data = nav.download_file(site_id, drive_id, "General/PRENOTAZIONI_BI/prenotazioni.xlsx")
+    prenotazioni_data = nav.download_file(site_id, drive_id, "General/PRENOTAZIONI_BI/prenotazioni.parquet")
     soggetti_data = nav.download_file(site_id, drive_id, "General/PRENOTAZIONI_BI/soggetti.parquet")
     utenza = nav.download_file(site_id, drive_id, "General/PRENOTAZIONI_BI/utenza.xlsx")
     
 
     df_utenza = pd.read_excel(io.BytesIO(utenza["content"]))
-    df = pd.read_excel(io.BytesIO(prenotazioni_data['content']))
+    df = pd.read_parquet(io.BytesIO(prenotazioni_data['content']))
+                
         
     if 'id' not in df.columns:
         df.insert(0, 'id', range(len(df)))
@@ -51,7 +52,7 @@ def prepare_data(df):
         "PORTAFOGLIO", "CENTRO DI COSTO", "GESTORE", "NDG DEBITORE", "NOMINATIVO POSIZIONE",
         "NDG NOMINATIVO RICERCATO", "C.F.", "SERVIZIO RICHIESTO", "NOME SERVIZIO", "PROVIDER",
         "INVIATE AL PROVIDER", "COSTO", "MESE", "ANNO", "RIFATTURAZIONE", "NOMINATIVO RICERCA",
-        "DATA RICHIESTA", "CONVALIDA TL"
+        "DATA RICHIESTA"
     ]
     if "id" not in df.columns:
         df["id"] = range(1, len(df) + 1)
@@ -126,26 +127,17 @@ def authentication():
                 if ok:
                     st.success(msg + " Controlla la tua casella email e la sezione spam (potrebbero volerci alcuni minuti).")
                     st.markdown(
-                        """
+                        f"""
                         **Non hai ricevuto la mail?**
-<<<<<<< HEAD
-                        [Clicca qui per scrivere al supporto](
-=======
-                        [Clicca qui per ricevere supporto](
->>>>>>> 720a61fde910bedbe14518b3bdbd5cd6b5dfff74
-                            mailto:filippo.facibeni@fbs.it?subject=Recupero%20password%20Prenotazioni%20BI&body=Non%20ho%20ricevuto%20la%20mail%20di%20reset%20password%20per%20l'account:%20{}.
-                        )
-                        """.format(email_norm)
+                        [Clicca qui per ricevere supporto](mailto:filippo.facibeni@fbs.it?subject=Recupero%20password%20Prenotazioni%20BI&body=Non%20ho%20ricevuto%20la%20mail%20di%20reset%20password%20per%20l'account:%20{email_norm}.)
+                        """
                     )
                 else:
                     st.error(msg)
                 return None, None
-
-
 def main():
     df, df_soggetti, df_utenza = get_files_from_sharepoint()
     df = prepare_data(df)
-    
     if 'df_full' not in st.session_state:
         st.session_state['df_full'] = df.copy()
     
@@ -167,7 +159,7 @@ def main():
     nav = get_navigator()
     
     if user["ruolo"] == "admin":
-        home_admin(st.session_state['df_full'], nav, st.session_state['df_full'])
+        home_admin(st.session_state['df_full'], df_soggetti, nav, st.session_state['df_full'])
     elif user["ruolo"] == "team leader":
         home_Teamleader(st.session_state['df_full'], df_soggetti, nav)
     elif user["ruolo"] == "analista":

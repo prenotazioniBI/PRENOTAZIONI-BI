@@ -118,13 +118,7 @@ def mostra_df_filtrato_utente(df):
     st.dataframe(df, use_container_width=True, height=500)
 
 def mostra_df_filtrato(df):
-    df = df[
-        ((df["INVIATE AL PROVIDER"].isnull()) | (df["INVIATE AL PROVIDER"] == "")) &
-        (
-            ((df["NOME SERVIZIO"] == "Ricerca eredi accettanti") & (df["CONVALIDA TL"] == "VALIDA")) |
-            ((df["NOME SERVIZIO"] != "Ricerca eredi accettanti") & (df["CONVALIDA TL"].isnull() | (df["CONVALIDA TL"] == "")))
-        )
-    ]
+    df = df[df["INVIATE AL PROVIDER"].isnull()]
     col1, col2, col3 = st.columns(3)
     columns = [
         "C.F.",
@@ -139,6 +133,8 @@ def mostra_df_filtrato(df):
     
     existing_columns = [col for col in columns if col in df.columns]
     df = df[existing_columns].copy()
+    df = df[df["DATA RICHIESTA"].notnull()]
+
     
     with col1:
         df = filtro_cf(df, key_suffix="admin_cf")
@@ -151,7 +147,7 @@ def mostra_df_filtrato(df):
     st.dataframe(df, use_container_width=True, height=500)
 
     buffer = io.BytesIO()
-    df.to_excel(buffer, index=False)
+    df.to_parquet(buffer, index=False)
     buffer.seek(0)
 
     st.download_button(

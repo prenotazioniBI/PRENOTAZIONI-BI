@@ -78,6 +78,7 @@ def aggrid_pivot_delta(
     height=500
 ):
     df_clean = df.copy()
+    df_clean = df_clean[df_clean["INVIATE AL PROVIDER"].notnull()]
     df_clean = df_clean[df_clean[anno_col] == 2025]
     mesi_unici = df_clean[mese_col].dropna().unique()
     try:
@@ -86,22 +87,19 @@ def aggrid_pivot_delta(
     except Exception:
         mesi_ordinati = sorted(mesi_unici)
 
-    # Widget per selezionare i mesi da visualizzare
     mesi_italiani = [
         "", "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
         "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
     ]
-    mesi_label = [mesi_italiani[int(m)] if isinstance(m, (int, float)) and 1 <= int(m) <= 12 else str(m) for m in mesi_ordinati]
-    mesi_selezionati = st.multiselect("Seleziona i mesi da visualizzare", mesi_label, default=mesi_label[-2:])
-
-    # Trova i numeri dei mesi selezionati
-    mesi_num = [mesi_ordinati[mesi_label.index(m)] for m in mesi_selezionati if m in mesi_label]
-
-    if len(mesi_num) < 2:
-        st.error("Seleziona almeno due mesi per il confronto.")
+    # Prendi sempre gli ultimi due mesi disponibili
+    if len(mesi_ordinati) < 2:
+        st.error("Non ci sono almeno due mesi disponibili per il confronto.")
         return
+    
+    mesi_num = mesi_ordinati[-2:]
+    mesi_label = [nome_mese(m) for m in mesi_num]
+    st.info(f"Confronto tra: {mesi_label[0]} e {mesi_label[1]}")
 
-    # Filtra il DataFrame per i mesi selezionati
     df_filtrato = df_clean[df_clean[mese_col].isin(mesi_num)].copy()
 
     # Pivot: centro di costo, servizio, mese
@@ -159,11 +157,10 @@ def aggrid_pivot_delta(
     gb.configure_column(group_col, headerName=group_col, rowGroup=True, width=150, pinned='left', hide=True)
     gb.configure_column(sub_col, headerName=sub_col, width=180)
 
-    # Configura le colonne dei mesi selezionati
     for mese in mesi_num:
         gb.configure_column(
             str(mese),
-            headerName=f"Costo {mesi_italiani[int(mese)] if isinstance(mese, (int, float)) and 1 <= int(mese) <= 12 else mese}",
+            headerName=f"Costo {nome_mese(mese)}",
             width=120,
             valueFormatter="x.toFixed(2)",
             type="numericColumn"

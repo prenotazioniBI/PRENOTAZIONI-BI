@@ -1,7 +1,6 @@
 from datetime import datetime
 from excel_funzioni import salva_richiesta
 import streamlit as st
-import time
 
 
 

@@ -2,24 +2,24 @@ import streamlit as st
 from filtro_df import  mostra_df_filtrato
 from excel_funzioni import modifica_celle_excel
 from grafici import aggrid_pivot, aggrid_pivot_delta
-import io
+from io import BytesIO
 import pandas as pd
-
-
+from ottimizzazione import gestisci_nuova_richiesta
+from user import menu_utente
 
 def refreshino(key_suffix=""):
     refresh = st.button("⟳", key=f"refresh_{key_suffix}")
     if refresh:
         st.cache_data.clear()
 
-def home_admin(df, nav, df_full):
+def home_admin(df, df_soggetti, nav, df_full):
     user = st.session_state.get("user")
     if not user or user.get("ruolo") != "admin":
         st.warning("Sessione scaduta o non autorizzata. Effettua di nuovo il login.")
         st.stop()
     else:
         st.title("Area Admin")
-        sezione = st.sidebar.radio("",["AGGIORNA", "DA INVIARE","DASHBOARD"])
+        sezione = st.sidebar.radio("",["AGGIORNA", "DA INVIARE","NUOVA RICHIESTA", "DASHBOARD"])
 
         if sezione == "DA INVIARE":
             col1, col2, _ = st.columns([0.04, 1, 0.1])
@@ -39,8 +39,6 @@ def home_admin(df, nav, df_full):
             with col3: 
                 st.write("") 
                 salva = st.button("Salva modifiche", key="salva_modifiche_excel")
-            if "CONVALIDA TL" in st.session_state['df_full'].columns:
-                st.session_state['df_full']["CONVALIDA TL"] = st.session_state['df_full']["CONVALIDA TL"].fillna("").replace({"NO": ""})
             if "RIFATTURAZIONE" in st.session_state['df_full'].columns:
                     st.session_state['df_full']["RIFATTURAZIONE"] = (
                         st.session_state['df_full']["RIFATTURAZIONE"]
@@ -53,36 +51,26 @@ def home_admin(df, nav, df_full):
                 if edited_df is None or edited_df.empty:
                     st.warning("Nessuna modifica da salvare.")
                 else:
-                    updated = 0
-                    unmatched = 0
-                    for _, row in edited_df.iterrows():
-                        uid = row.get('id', None)
-                        if pd.isna(uid):
-                            unmatched += 1
-                            continue
-
-                        mask = st.session_state['df_full']['id'] == uid
-                        if mask.any():
-                            cols_to_update = [c for c in edited_df.columns if c != 'id']
-                            st.session_state['df_full'].loc[mask, cols_to_update] = row[cols_to_update].values
-                            updated += mask.sum()
-                        else:
-                            unmatched += 1
-                    buffer = io.BytesIO()
-                    st.session_state['df_full'].to_excel(buffer, index=False)
-                    buffer.seek(0)
-                    file_content = buffer.getvalue()
-                    file_data = {
-                        'filename': "General/PRENOTAZIONI_BI/prenotazioni.xlsx",
-                        'content': file_content,
-                        'size': len(file_content)
-                    }
-                    nav.file_buffer.append(file_data)
-                    nav.upload_file()
-                    st.cache_data.clear()
-                    st.rerun()
-                    st.toast(f"Salvate {updated} modifiche. Non abbinate: {unmatched}")
-
+                    st.session_state['df_full'].update(edited_df)
+                buffer = BytesIO()
+                st.session_state['df_full'].to_parquet(buffer, index=False)
+                buffer.seek(0)
+                file_content = buffer.getvalue()
+                file_data = {
+                    'filename': "General/PRENOTAZIONI_BI/prenotazioni.parquet",
+                    'content': file_content,
+                    'size': len(file_content)
+                }
+                nav.file_buffer.append(file_data)
+                nav.upload_file()
+                st.cache_data.clear()
+                st.rerun()
+        if sezione == "NUOVA RICHIESTA":
+            st.subheader("NUOVA RICHIESTA")
+            richieste = [
+                    "Ricerca eredi accettanti"
+                ]
+            gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_utente, nav)
 
         if sezione == "DASHBOARD":
             st.subheader("DASHBOARD")
@@ -92,15 +80,18 @@ def home_admin(df, nav, df_full):
             value_col="COSTO",
             mese_col="MESE",
             height=500)
-
+            
 
             st.subheader("PIVOT")
             df["MESE"] = pd.to_numeric(df["MESE"], errors="coerce").fillna(0).astype(int)
             df["ANNO"] = pd.to_numeric(df["ANNO"], errors="coerce").fillna(0).astype(int)  # <-- aggiungi questa riga
-
-            mesi = df["MESE"].dropna().unique().tolist()
-            mesi.sort()
-            mesi.insert(0, "Tutti")
+            df = df[df["INVIATE AL PROVIDER"].notnull()]
+            mesi_italiani = [
+                "Tutti", "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+                "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+            ]
+            mesi_num = sorted(set(int(m) for m in df["MESE"].dropna().unique() if int(m) > 0))
+            mesi = ["Tutti"] + [mesi_italiani[m] for m in mesi_num]
             anni = df["ANNO"].dropna().unique().tolist()
             anni.sort()
             anni.insert(0, "Tutti")

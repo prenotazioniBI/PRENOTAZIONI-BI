@@ -18,7 +18,6 @@ def visualizza_richieste_per_gestore(df, username):
         "C.F.",
         "NOME SERVIZIO",
         "INVIATE AL PROVIDER",
-        "CONVALIDA TL",
         "PORTAFOGLIO",
         "NDG DEBITORE",
         "NOMINATIVO POSIZIONE",
@@ -28,7 +27,6 @@ def visualizza_richieste_per_gestore(df, username):
     
     colonne_presenti = [col for col in colonne_da_mostrare if col in richieste_utente.columns]
     richieste_utente = richieste_utente.sort_values("DATA RICHIESTA", ascending=False)
-    richieste_utente["INVIATE AL PROVIDER"] = richieste_utente["INVIATE AL PROVIDER"].fillna("In Attesa..")
     richieste_utente[colonne_da_mostrare] = richieste_utente[colonne_da_mostrare].fillna("   -    ")
     return richieste_utente[colonne_presenti]
 
@@ -79,7 +77,7 @@ def salva_richiesta(
         "C.F.": cf,
         "NOME SERVIZIO": nome_servizio,
         "PROVIDER": provider,
-        "INVIATE AL PROVIDER": data_invio,
+       "INVIATE AL PROVIDER": pd.to_datetime(data_invio, errors="coerce", dayfirst=True) if data_invio else pd.NaT,
         "COSTO": costo,
         "MESE": mese,
         "ANNO": anno,
@@ -87,21 +85,19 @@ def salva_richiesta(
         "RIFATTURAZIONE": rifatturazione,
         "TOT POSIZIONI": tot_posizioni,
         "DATA RICHIESTA": data_richiesta,
-        "CONVALIDA TL": rifiutata,
         "SERVIZIO RICHIESTO": "Richiesta singola gestore"
     }
-    
     df_completo = pd.concat([df, pd.DataFrame([riga])], ignore_index=True)
     if "id" not in df_completo.columns:
         df_completo["id"] = range(1, len(df_completo) + 1)
     else:
         df_completo["id"] = range(1, len(df_completo) + 1)
     buffer = BytesIO()
-    df_completo.to_excel(buffer, index=False)
+    df_completo.to_parquet(buffer, index=False)
     buffer.seek(0)
     file_content = buffer.getvalue()
     file_data = {
-        'filename': "General/PRENOTAZIONI_BI/prenotazioni.xlsx",
+        'filename': "General/PRENOTAZIONI_BI/prenotazioni.parquet",
         'content': file_content,
         'size': len(file_content)
     }
@@ -148,41 +144,43 @@ def visualizza_richieste_Evase(df):
         "NDG DEBITORE",
         "NOMINATIVO POSIZIONE",
         "NDG NOMINATIVO RICERCATO",
-        "NOMINATIVO RICERCA",
-        "CONVALIDA TL"
+        "NOMINATIVO RICERCA"
     ]
     df = df[colonne_principali] 
     ordino_per_stato = df.sort_values("DATA RICHIESTA", ascending=False)
     return ordino_per_stato
 
-def modifica_celle_excel_eredi(df, mostra_editor=True):
-    df = df[(df["NOME SERVIZIO"] == "Ricerca eredi accettanti") & (df["CONVALIDA TL"].isnull()) | (df["CONVALIDA TL"] == "")]
-    if not df.empty:
-        colonne = ["C.F.", "DATA RICHIESTA", "GESTORE", "PORTAFOGLIO", "NDG DEBITORE", "NOMINATIVO POSIZIONE", 
-                "NDG NOMINATIVO RICERCATO", "NOMINATIVO RICERCA", "CONVALIDA TL"]
-        cols_to_show = [col for col in colonne if col in df.columns]
-        if 'id' in df.columns and 'id' not in cols_to_show:
-                cols_to_show.append('id')
-        df = df[cols_to_show] 
+# def modifica_celle_excel_eredi(df, mostra_editor=True):
+#     df = df[
+#     ((df["NOME SERVIZIO"] == "Ricerca eredi accettanti") | (df["NOME SERVIZIO"] == "Ricerca eredi")) &
+#     (df["CONVALIDA TL"] == "") &  (df["INVIATE AL PROVIDER"].isnull())]
+                                        
+#     if not df.empty:
+#         colonne = ["C.F.", "DATA RICHIESTA", "NOME SERVIZIO","GESTORE", "PORTAFOGLIO", "NDG DEBITORE", "NOMINATIVO POSIZIONE", 
+#                 "NDG NOMINATIVO RICERCATO", "NOMINATIVO RICERCA", "CONVALIDA TL"]
+#         cols_to_show = [col for col in colonne if col in df.columns]
+#         if 'id' in df.columns and 'id' not in cols_to_show:
+#                 cols_to_show.append('id')
+#         df = df[cols_to_show] 
         
-        if mostra_editor:
-            df_copy = df.copy().reset_index(drop=True)
-            df_copy = df_copy.loc[:, ~df_copy.columns.duplicated()]
-            edited_df = st.data_editor(
-                df_copy,
-                num_rows="dynamic",
-                height=2000,
-                use_container_width=True,
-                key="editor_admin",
-                column_config={"CONVALIDA TL": st.column_config.SelectboxColumn("CONVALIDA TL", options=["", "VALIDA", "NON VALIDA"], required=False)
-                }
-            )
-            return edited_df
-        return edited_df
-    else:
-        col1, col2, col3 = st.columns(3)
-        with col2:
-            st.warning("NESSUNA RICHIESTA EREDI IN SOSPESO..")
+#         if mostra_editor:
+#             df_copy = df.copy().reset_index(drop=True)
+#             df_copy = df_copy.loc[:, ~df_copy.columns.duplicated()]
+#             edited_df = st.data_editor(
+#                 df_copy,
+#                 num_rows="dynamic",
+#                 height=2000,
+#                 use_container_width=True,
+#                 key="editor_admin",
+#                 column_config={"CONVALIDA TL": st.column_config.SelectboxColumn("CONVALIDA TL", options=["", "VALIDA", "NON VALIDA"], required=False)
+#                 }
+#             )
+#             return edited_df
+#         return edited_df
+#     else:
+#         col1, col2, col3 = st.columns(3)
+#         with col2:
+#             st.warning("NESSUNA RICHIESTA EREDI IN SOSPESO..")
 
 
 def modifica_celle_excel(df, mostra_editor=True):
@@ -194,7 +192,7 @@ def modifica_celle_excel(df, mostra_editor=True):
     colonne = ["C.F.", "DATA RICHIESTA", "GESTORE", "COSTO", "INVIATE AL PROVIDER", "PORTAFOGLIO",
                "CENTRO DI COSTO", "NDG DEBITORE", "NOMINATIVO POSIZIONE", 
                "NDG NOMINATIVO RICERCATO", "NOMINATIVO RICERCA", "SERVIZIO RICHIESTO",
-               "NOME SERVIZIO", "PROVIDER", "RIFATTURAZIONE", "CONVALIDA TL"]
+               "NOME SERVIZIO", "PROVIDER", "RIFATTURAZIONE"]
 
     cols_to_show = [col for col in colonne if col in df_filtered.columns]
     if 'id' in df_filtered.columns and 'id' not in cols_to_show:
@@ -213,7 +211,7 @@ def modifica_celle_excel(df, mostra_editor=True):
             df_copy['NDG NOMINATIVO RICERCATO'] = df_copy['NDG NOMINATIVO RICERCATO'].fillna('').astype(str)
         if 'COSTO' in df_copy.columns:
             df_copy['COSTO'] = df_copy['COSTO'].astype(str)
-        
+        df_copy["INVIATE AL PROVIDER"] = pd.to_datetime(df_copy["INVIATE AL PROVIDER"], format="mixed", dayfirst=True, errors="coerce")        
         edited_df = st.data_editor(
             df_copy,
             num_rows="dynamic",
@@ -272,9 +270,14 @@ def visualizza_richieste_TeamLeader(df):
         "NDG DEBITORE",
         "NOMINATIVO POSIZIONE",
         "NDG NOMINATIVO RICERCATO",
-        "NOMINATIVO RICERCA",
-        "CONVALIDA TL"
+        "NOMINATIVO RICERCA"
     ]
     df = df[colonne_principali] 
     ordino_per_stato = df.sort_values("DATA RICHIESTA", ascending=False)
     return ordino_per_stato
+
+
+
+
+##############################################################################
+
