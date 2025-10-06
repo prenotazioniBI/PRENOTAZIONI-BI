@@ -7,3 +7,4 @@ msal
 python-stdnum
 streamlit-aggrid
 firebase_admin
+plotly

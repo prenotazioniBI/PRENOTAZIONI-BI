@@ -109,7 +109,18 @@ def mostra_df_filtrato_utente(df):
     
     if user and "username" in user:
         df = df[df["GESTORE"] == user["username"]]
-    
+        columns = ["C.F.",
+        "PORTAFOGLIO",
+        "NOMINATIVO POSIZIONE",
+        "NDG DEBITORE",
+        "NOMINATIVO RICERCA",
+        "NOME SERVIZIO",
+        "DATA RICHIESTA",
+        "INVIATE AL PROVIDER",
+        "COSTO"
+    ]
+        existing_columns = [col for col in columns if col in df.columns]
+        df = df[existing_columns].copy()
     with col1:
         df = filtro_data(df, key_suffix="utente_data")
     with col2:

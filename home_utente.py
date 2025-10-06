@@ -35,17 +35,15 @@ def home_utente(df, df_soggetti, nav):
         mostra_df_filtrato_utente(df)
 
     if selezione == "NUOVA RICHIESTA":
-        st.code("NOTA*\n"
-                "Per richiedere il rintraccio eredi è necessario rivolgersi tramite email al proprio Team Leader di riferimento.")
+        
         richieste = [
-            "Ricerca eredi accettanti",
             "Info lavorativa Full (residenza + telefono + impiego)",
             "Ricerca Anagrafica",
             "Ricerca Telefonica",
             "Ricerca Anagrafica + Telefono",
             "Rintraccio Conto corrente"
         ]
-        gestisci_nuova_richiesta(df_soggetti, richieste, menu_utente, nav)
+        gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_utente, nav)
                 
 
 

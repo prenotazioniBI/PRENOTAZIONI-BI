@@ -38,11 +38,12 @@ def get_files_from_sharepoint():
 
     df_utenza = pd.read_excel(io.BytesIO(utenza["content"]))
     df = pd.read_parquet(io.BytesIO(prenotazioni_data['content']))
-                
+     
         
     if 'id' not in df.columns:
         df.insert(0, 'id', range(len(df)))
-    
+
+
     df_soggetti = pd.read_parquet(io.BytesIO(soggetti_data['content']))
     
     return df, df_soggetti, df_utenza

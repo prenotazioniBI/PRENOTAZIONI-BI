@@ -27,7 +27,11 @@ def gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_utente, nav):
             if st.button("NUOVA RICHIESTA"):
                 st.session_state["inserimento_richiesta"] = True
                 st.rerun()
+            st.code("NOTA*\n"
+                "Per richiedere il rintraccio eredi è necessario rivolgersi tramite email al proprio Team Leader di riferimento.\n" \
+                "" )
         else:
+            
             if "richiesta" not in st.session_state:
                 banner_richiesta_utente(df_soggetti)
             dati_banner = st.session_state.get("richiesta")

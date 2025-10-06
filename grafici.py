@@ -87,11 +87,6 @@ def aggrid_pivot_delta(
     except Exception:
         mesi_ordinati = sorted(mesi_unici)
 
-    mesi_italiani = [
-        "", "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-        "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
-    ]
-    # Prendi sempre gli ultimi due mesi disponibili
     if len(mesi_ordinati) < 2:
         st.error("Non ci sono almeno due mesi disponibili per il confronto.")
         return

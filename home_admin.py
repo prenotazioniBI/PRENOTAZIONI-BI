@@ -83,15 +83,15 @@ def home_admin(df, df_soggetti, nav, df_full):
             
 
             st.subheader("PIVOT")
-            df["MESE"] = pd.to_numeric(df["MESE"], errors="coerce").fillna(0).astype(int)
-            df["ANNO"] = pd.to_numeric(df["ANNO"], errors="coerce").fillna(0).astype(int)  # <-- aggiungi questa riga
+
             df = df[df["INVIATE AL PROVIDER"].notnull()]
             mesi_italiani = [
                 "Tutti", "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
                 "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
             ]
-            mesi_num = sorted(set(int(m) for m in df["MESE"].dropna().unique() if int(m) > 0))
-            mesi = ["Tutti"] + [mesi_italiani[m] for m in mesi_num]
+            df["MESE_IT"] = df["MESE"].apply(lambda x: mesi_italiani[int(x)] if pd.notnull(x) and str(x).isdigit() and 0 < int(x) <= 12 else "")
+            mesi_unici = sorted(set(df["MESE_IT"].dropna().unique()) - {""})
+            mesi = ["Tutti"] + mesi_unici
             anni = df["ANNO"].dropna().unique().tolist()
             anni.sort()
             anni.insert(0, "Tutti")
@@ -104,7 +104,7 @@ def home_admin(df, df_soggetti, nav, df_full):
 
             df_filtrato = df
             if mese_sel != "Tutti":
-                df_filtrato = df_filtrato[df_filtrato["MESE"] == mese_sel]
+                df_filtrato = df_filtrato[df_filtrato["MESE_IT"] == mese_sel]
             if anno_sel != "Tutti":
                 df_filtrato = df_filtrato[df_filtrato["ANNO"] == anno_sel]
 
