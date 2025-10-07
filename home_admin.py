@@ -29,7 +29,6 @@ def home_admin(df, df_soggetti, nav, df_full):
                 st.subheader("DA INVIARE")
                 mostra_df_filtrato(df_full)
 
-
         if sezione == "AGGIORNA":
             col1, col2, col3 = st.columns([0.04, 1, 0.2])
             with col1:
@@ -70,8 +69,12 @@ def home_admin(df, df_soggetti, nav, df_full):
             richieste = [
                     "Ricerca eredi accettanti"
                 ]
-            gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_utente, nav)
-
+            if gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_utente, nav):
+                nome_gestore = st.text_input("Inserisci il nome del GESTORE", "")
+                if nome_gestore:
+                    # Aggiorna il DataFrame (o lo stato) con il nome gestore inserito
+                    if "richiesta" in st.session_state:
+                        st.session_state["richiesta"]["GESTORE"] = nome_gestore
         if sezione == "DASHBOARD":
             st.subheader("DASHBOARD")
             aggrid_pivot_delta(df,

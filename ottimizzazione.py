@@ -58,3 +58,15 @@ def gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_utente, nav):
                         st.rerun()
                     else:
                         st.error(msg)
+########################################################################################à
+
+
+
+
+def normalizza_gestore(nome, lista_gestori):
+    nome_clean = nome.replace(".", "").replace(" ", "").lower()
+    for g in lista_gestori:
+        g_clean = str(g).replace(".", "").replace(" ", "").lower()
+        if nome_clean == g_clean:
+            return g
+    return nome

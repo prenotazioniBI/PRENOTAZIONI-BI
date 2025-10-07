@@ -18,18 +18,37 @@ def home_utente(df, df_soggetti, nav):
         with col1:
             if st.button("⟳", key="refresh_pagina_tab1"):
                 st.cache_data.clear()
-        with col2:
-            costi_servizi = {
-                "Rintraccio Conto corrente": 19.5,
-                "Info lavorativa Full (residenza + telefono + impiego)": 10.5,
-                "Ricerca eredi accettanti": 50,
-                "Ricerca Anagrafica + Telefono": 2.9,
-                "Ricerca Anagrafica": 0.6,
-                "Ricerca Telefonica": 2.3,
+        with col2:    
+            mappa_gestori = {
+            "ANTONELLA COCCO": "Antonella cocco",
+            "BEATRICE LAORENZA": "Beatrice Laorenza",
+            "Bacchetta ": "Carlo Bacchetta",
+            "DANIELA RIZZI": "Daniela Rizzi",
+            "FINGEST CREDIT": "Fingest Group",
+            "GIUSEPPE NIGRA": "Giuseppe Nigra",
+            "LAMYAA HAKIM": "Lamyaa Hakim",
+            "MATTEO CATARZI": "Matteo Catarzi",
+            "Magnifico Gelsomina ": "Gelsomina Magnifico",
+            "Mauro Gualtiero ": "Mauro Gualtiero",
+            "Michele  Oranger": "Michele Oranger",
+            "RITA NOTO": "Rita Maria Noto",
+            "Rita Maria Noto ": "Rita Maria Noto",
+            "Rita Noto": "Rita Maria Noto",
+            "Rita maria Noto": "Rita Maria Noto",
+            "Ruscelli lisa": "Ruscelli Lisa",
+            "Tiziana Alibrandi ": "Tiziana Alibrandi",
+            "VALENTINA BARTOLO": "Valentina Bartolo",
+            "VALERIA NAPOLEONE": "Valeria Napoleone",
+            "carmela lanciano": "Carmela Lanciano",
+            "silvia stefanelli": "Silvia Stefanelli",
+            " AGECREDIT": "AGECREDIT"
+            # aggiungi qui altre normalizzazioni se servono
             }
-            richieste_utente = df[df["GESTORE"] == user["username"]]
-            richieste_utente["COSTO_SERVIZIO"] = richieste_utente["NOME SERVIZIO"].map(costi_servizi).fillna(0)
-            totale = richieste_utente["COSTO_SERVIZIO"].sum()
+            if "GESTORE" in df.columns:
+                df["GESTORE"] = df["GESTORE"].replace(mappa_gestori)
+            username_norm = user["username"].replace(" ", "").lower()
+            df = df[df["GESTORE"].astype(str).str.replace(" ", "").str.lower() == username_norm]
+            totale = df["COSTO"].sum()
 
             st.info(f"**Costo delle richieste: {totale:.2f} €**")
         mostra_df_filtrato_utente(df)

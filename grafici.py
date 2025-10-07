@@ -3,7 +3,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-
 def aggrid_pivot(
     df,
     group_col,
@@ -23,11 +22,41 @@ def aggrid_pivot(
         "Ricerca Telefonica (verificato)": "Ricerca Telefonica",
         # aggiungi qui altre normalizzazioni se servono
     }
+    # Mappatura per normalizzare i nomi dei gestori
+    mappa_gestori = {
+        "ANTONELLA COCCO": "Antonella Cocco",
+        "Antonella cocco": "Antonella Cocco",
+        "BEATRICE LAORENZA": "Beatrice Laorenza",
+        "Bacchetta ": "Carlo Bacchetta",
+        "DANIELA RIZZI": "Daniela Rizzi",
+        "FINGEST CREDIT": "Fingest Group",
+        "GIUSEPPE NIGRA": "Giuseppe Nigra",
+        "LAMYAA HAKIM": "Lamyaa Hakim",
+        "MATTEO CATARZI": "Matteo Catarzi",
+        "Magnifico Gelsomina ": "Gelsomina Magnifico",
+        "Mauro Gualtiero ": "Mauro Gualtiero",
+        "Michele  Oranger": "Michele Oranger",
+        "RITA NOTO": "Rita Maria Noto",
+        "Rita Maria Noto ": "Rita Maria Noto",
+        "Rita Noto": "Rita Maria Noto",
+        "Rita maria Noto": "Rita Maria Noto",
+        "Ruscelli lisa": "Ruscelli Lisa",
+        "Tiziana Alibrandi ": "Tiziana Alibrandi",
+        "VALENTINA BARTOLO": "Valentina Bartolo",
+        "VALERIA NAPOLEONE": "Valeria Napoleone",
+        "carmela lanciano": "Carmela Lanciano",
+        "silvia stefanelli": "Silvia Stefanelli",
+        " AGECREDIT": "AGECREDIT"
+        # aggiungi qui altre normalizzazioni se servono
+    }
 
     df = df.copy()
     # Normalizza i nomi dei servizi
     if sub_col == "NOME SERVIZIO":
         df[sub_col] = df[sub_col].replace(mappa_servizi)
+    # Normalizza i nomi dei gestori se la colonna esiste
+    if "GESTORE" in df.columns:
+        df["GESTORE"] = df["GESTORE"].replace(mappa_gestori)
 
     df[value_col] = pd.to_numeric(df[value_col], errors="coerce").fillna(0)
 

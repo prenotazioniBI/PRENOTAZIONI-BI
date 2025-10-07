@@ -149,6 +149,7 @@ def home_analista(df, nav, df_full):
                 height=600
             )
             st.plotly_chart(fig, use_container_width=True)
+######################## GRAFICO GESTORI ###########################
 
 
         if sezione == "PIVOT":

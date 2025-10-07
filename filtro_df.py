@@ -107,18 +107,50 @@ def mostra_df_filtrato_utente(df):
     user = st.session_state.get("user")
     df = df.copy()
     
+    # Mappatura per normalizzare i nomi dei gestori
+    mappa_gestori = {
+        "ANTONELLA COCCO": "Antonella cocco",
+        "BEATRICE LAORENZA": "Beatrice Laorenza",
+        "Bacchetta ": "Carlo Bacchetta",
+        "DANIELA RIZZI": "Daniela Rizzi",
+        "FINGEST CREDIT": "Fingest Group",
+        "GIUSEPPE NIGRA": "Giuseppe Nigra",
+        "LAMYAA HAKIM": "Lamyaa Hakim",
+        "MATTEO CATARZI": "Matteo Catarzi",
+        "Magnifico Gelsomina ": "Gelsomina Magnifico",
+        "Mauro Gualtiero ": "Mauro Gualtiero",
+        "Michele  Oranger": "Michele Oranger",
+        "RITA NOTO": "Rita Maria Noto",
+        "Rita Maria Noto ": "Rita Maria Noto",
+        "Rita Noto": "Rita Maria Noto",
+        "Rita maria Noto": "Rita Maria Noto",
+        "Ruscelli lisa": "Ruscelli Lisa",
+        "Tiziana Alibrandi ": "Tiziana Alibrandi",
+        "VALENTINA BARTOLO": "Valentina Bartolo",
+        "VALERIA NAPOLEONE": "Valeria Napoleone",
+        "carmela lanciano": "Carmela Lanciano",
+        "silvia stefanelli": "Silvia Stefanelli",
+        " AGECREDIT": "AGECREDIT"
+        # aggiungi qui altre normalizzazioni se servono
+    }
+    if "GESTORE" in df.columns:
+        df["GESTORE"] = df["GESTORE"].replace(mappa_gestori)
+    
     if user and "username" in user:
-        df = df[df["GESTORE"] == user["username"]]
-        columns = ["C.F.",
-        "PORTAFOGLIO",
-        "NOMINATIVO POSIZIONE",
-        "NDG DEBITORE",
-        "NOMINATIVO RICERCA",
-        "NOME SERVIZIO",
-        "DATA RICHIESTA",
-        "INVIATE AL PROVIDER",
-        "COSTO"
-    ]
+
+        username_norm = user["username"].replace(" ", "").lower()
+        df = df[df["GESTORE"].astype(str).str.replace(" ", "").str.lower() == username_norm]
+        columns = [
+            "C.F.",
+            "PORTAFOGLIO",
+            "NOMINATIVO POSIZIONE",
+            "NDG DEBITORE",
+            "NOMINATIVO RICERCA",
+            "NOME SERVIZIO",
+            "DATA RICHIESTA",
+            "INVIATE AL PROVIDER",
+            "COSTO"
+        ]
         existing_columns = [col for col in columns if col in df.columns]
         df = df[existing_columns].copy()
     with col1:
@@ -127,6 +159,7 @@ def mostra_df_filtrato_utente(df):
         df = filtro_cf(df, key_suffix="utente_cf")
     
     st.dataframe(df, use_container_width=True, height=500)
+    return df
 
 def mostra_df_filtrato(df):
     df = df[df["INVIATE AL PROVIDER"].isnull()]
