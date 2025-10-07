@@ -20,8 +20,9 @@ def aggrid_pivot(
         "Ricerca Telefonica ": "Ricerca Telefonica",
         "Ricerca telefonica ": "Ricerca Telefonica",
         "Ricerca Telefonica (verificato)": "Ricerca Telefonica",
-        "Anagrafica+Telefono" : "Ricerca Anagrafica + Telefono"
-        # aggiungi qui altre normalizzazioni se servono
+        "Anagrafica+Telefono" : "Ricerca Anagrafica + Telefono",
+        "Rintraccio Eredi Chiamati con verifica accettazione" : "Ricerca eredi",
+        "Ricerca eredi accettanti" : "Ricerca eredi"
     }
     # Mappatura per normalizzare i nomi dei gestori
     mappa_gestori = {
@@ -127,6 +128,8 @@ def aggrid_pivot_delta(
         "Ricerca Telefonica ": "Ricerca Telefonica",
         "Ricerca telefonica ": "Ricerca Telefonica",
         "Ricerca Telefonica (verificato)": "Ricerca Telefonica",
+        "Anagrafica+Telefono" : "Ricerca Anagrafica + Telefono",
+
         # aggiungi qui altre normalizzazioni se servono
     }
 
