@@ -131,7 +131,6 @@ def mostra_df_filtrato_utente(df):
         "carmela lanciano": "Carmela Lanciano",
         "silvia stefanelli": "Silvia Stefanelli",
         " AGECREDIT": "AGECREDIT"
-        # aggiungi qui altre normalizzazioni se servono
     }
     if "GESTORE" in df.columns:
         df["GESTORE"] = df["GESTORE"].replace(mappa_gestori)

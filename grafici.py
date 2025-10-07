@@ -55,8 +55,7 @@ def aggrid_pivot(
     if sub_col == "NOME SERVIZIO":
         df[sub_col] = df[sub_col].replace(mappa_servizi)
     # Normalizza i nomi dei gestori se la colonna esiste
-    if "GESTORE" in df.columns:
-        df["GESTORE"] = df["GESTORE"].replace(mappa_gestori)
+    df["GESTORE"] = df["GESTORE"].replace(mappa_gestori)
 
     df[value_col] = pd.to_numeric(df[value_col], errors="coerce").fillna(0)
 
