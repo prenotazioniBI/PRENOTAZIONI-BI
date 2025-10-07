@@ -124,13 +124,13 @@ def aggrid_pivot_delta(
 
     # Mappatura per normalizzare i nomi dei servizi
     mappa_servizi = {
-        "Ricerca Telefonica": "Ricerca Telefonica",
+         "Ricerca Telefonica": "Ricerca Telefonica",
         "Ricerca Telefonica ": "Ricerca Telefonica",
         "Ricerca telefonica ": "Ricerca Telefonica",
         "Ricerca Telefonica (verificato)": "Ricerca Telefonica",
         "Anagrafica+Telefono" : "Ricerca Anagrafica + Telefono",
-
-        # aggiungi qui altre normalizzazioni se servono
+        "Rintraccio Eredi Chiamati con verifica accettazione" : "Ricerca eredi",
+        "Ricerca eredi accettanti" : "Ricerca eredi"
     }
 
     df_clean = df.copy()
