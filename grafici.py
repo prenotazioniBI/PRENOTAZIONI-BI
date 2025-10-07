@@ -15,6 +15,20 @@ def aggrid_pivot(
     value_width=100,
     height=500
 ):
+    # Mappatura per normalizzare i nomi dei servizi
+    mappa_servizi = {
+        "Ricerca Telefonica": "Ricerca Telefonica",
+        "Ricerca Telefonica ": "Ricerca Telefonica",
+        "Ricerca telefonica ": "Ricerca Telefonica",
+        "Ricerca Telefonica (verificato)": "Ricerca Telefonica",
+        # aggiungi qui altre normalizzazioni se servono
+    }
+
+    df = df.copy()
+    # Normalizza i nomi dei servizi
+    if sub_col == "NOME SERVIZIO":
+        df[sub_col] = df[sub_col].replace(mappa_servizi)
+
     df[value_col] = pd.to_numeric(df[value_col], errors="coerce").fillna(0)
 
     df_grouped = df.groupby([group_col, sub_col], as_index=False)[value_col].sum()
@@ -22,7 +36,6 @@ def aggrid_pivot(
     df_counts = df.groupby([group_col, sub_col])["NOME SERVIZIO"].count().reset_index(name="NUM_RICHIESTE")
     df_grouped = df_grouped.merge(df_counts, on=[group_col, sub_col])
     df_grouped = df_grouped.rename(columns={value_col: value_name})
-
 
     totale = df_grouped[value_name].sum()
     num_richieste = df_grouped["NUM_RICHIESTE"].sum()
@@ -77,7 +90,22 @@ def aggrid_pivot_delta(
     anno_col = "ANNO",
     height=500
 ):
+    # ...existing code...
+
+    # Mappatura per normalizzare i nomi dei servizi
+    mappa_servizi = {
+        "Ricerca Telefonica": "Ricerca Telefonica",
+        "Ricerca Telefonica ": "Ricerca Telefonica",
+        "Ricerca telefonica ": "Ricerca Telefonica",
+        "Ricerca Telefonica (verificato)": "Ricerca Telefonica",
+        # aggiungi qui altre normalizzazioni se servono
+    }
+
     df_clean = df.copy()
+
+    df_clean[sub_col] = df_clean[sub_col].replace(mappa_servizi)
+
+
     df_clean = df_clean[df_clean["INVIATE AL PROVIDER"].notnull()]
     df_clean = df_clean[df_clean[anno_col] == 2025]
     mesi_unici = df_clean[mese_col].dropna().unique()
