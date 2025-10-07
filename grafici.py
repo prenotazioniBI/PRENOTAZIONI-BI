@@ -20,6 +20,7 @@ def aggrid_pivot(
         "Ricerca Telefonica ": "Ricerca Telefonica",
         "Ricerca telefonica ": "Ricerca Telefonica",
         "Ricerca Telefonica (verificato)": "Ricerca Telefonica",
+        "Anagrafica+Telefono" : "Ricerca Anagrafica + Telefono"
         # aggiungi qui altre normalizzazioni se servono
     }
     # Mappatura per normalizzare i nomi dei gestori
