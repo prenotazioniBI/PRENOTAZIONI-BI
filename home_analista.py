@@ -52,32 +52,49 @@ def home_analista(df, nav, df_full):
                 
                 st.plotly_chart(fig, use_container_width=False)
             with col2: 
-                # Raggruppa per portafoglio e somma i costi
-                costi_portafoglio = df.groupby("PORTAFOGLIO")["COSTO"].sum().sort_values(ascending=False)
+                # Mappatura per normalizzare i nomi dei servizi
+                mappa_servizi = {
+                    "Ricerca Telefonica": "Ricerca Telefonica",
+                    "Ricerca Telefonica ": "Ricerca Telefonica",
+                    "Ricerca telefonica ": "Ricerca Telefonica",
+                    "Ricerca Telefonica (verificato)": "Ricerca Telefonica",
+                    # aggiungi qui altre normalizzazioni se servono
+                }
+                
+                # Filtra solo i dati del 2025
+                df_2025 = df[df["ANNO"] == 2025].copy()
+                
+                # Normalizza i nomi dei servizi
+                df_2025["NOME SERVIZIO"] = df_2025["NOME SERVIZIO"].replace(mappa_servizi)
+                
+                # Raggruppa per NOME SERVIZIO e somma i costi
+                costi_servizio = df_2025.groupby("NOME SERVIZIO")["COSTO"].sum().sort_values(ascending=True)
                 
                 # Colori dal tema Streamlit
                 primary_color = st.get_option("theme.primaryColor") or "#1f77b4"
                 
                 fig = go.Figure(
                     data=[
-                        go.Pie(
-                            labels=costi_portafoglio.index.astype(str),
-                            values=costi_portafoglio.values,
-                            textinfo='label+percent',
-                            hoverinfo='label+value+percent',
-                            marker=dict(colors=[primary_color]*len(costi_portafoglio)),
-                            hole=0.3  # se vuoi un effetto "donut", altrimenti rimuovi questa riga
+                        go.Bar(
+                            y=costi_servizio.index.astype(str),  # Asse Y: NOME SERVIZIO normalizzato
+                            x=costi_servizio.values,             # Asse X: COSTO
+                            orientation="h",                     # Barre orizzontali
+                            marker_color=primary_color,
+                            text=[f"{v:,.2f} €" for v in costi_servizio.values],
+                            textposition="auto"
                         )
                     ]
                 )
                 fig.update_layout(
-                    title="Distribuzione COSTO per Portafoglio",
+                    title="Costo totale per NOME SERVIZIO (2025)",
+                    xaxis_title="Totale Costo (€)",
+                    yaxis_title="Nome Servizio",
                     plot_bgcolor=st.get_option("theme.backgroundColor") or "#fff",
                     paper_bgcolor=st.get_option("theme.backgroundColor") or "#fff",
-                    width=500,
-                    height=500
+                    width=550,
+                    height=600
                 )
-                st.plotly_chart(fig, use_container_width=False)
+                st.plotly_chart(fig, use_container_width=True)
 
 
 

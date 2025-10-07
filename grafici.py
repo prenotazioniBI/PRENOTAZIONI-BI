@@ -93,7 +93,7 @@ def aggrid_pivot_delta(
     
     mesi_num = mesi_ordinati[-2:]
     mesi_label = [nome_mese(m) for m in mesi_num]
-    st.info(f"Confronto tra: {mesi_label[0]} e {mesi_label[1]}")
+    st.info(f"Confronto tra: {mesi_label[0]} e {mesi_label[1]} 2025")
 
     df_filtrato = df_clean[df_clean[mese_col].isin(mesi_num)].copy()
 
