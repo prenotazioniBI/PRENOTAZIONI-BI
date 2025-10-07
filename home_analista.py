@@ -58,9 +58,10 @@ def home_analista(df, nav, df_full):
                     "Ricerca Telefonica ": "Ricerca Telefonica",
                     "Ricerca telefonica ": "Ricerca Telefonica",
                     "Ricerca Telefonica (verificato)": "Ricerca Telefonica",
-                    # aggiungi qui altre normalizzazioni se servono
+                    "Anagrafica+Telefono" : "Ricerca Anagrafica + Telefono",
+                    "Rintraccio Eredi Chiamati con verifica accettazione" : "Ricerca eredi",
+                    "Ricerca eredi accettanti" : "Ricerca eredi"
                 }
-                
                 # Filtra solo i dati del 2025
                 df_2025 = df[df["ANNO"] == 2025].copy()
                 
