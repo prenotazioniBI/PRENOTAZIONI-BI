@@ -122,7 +122,10 @@ def home_Teamleader(df, df_soggetti, nav):
                                 df_finale = df_finale.drop(columns="id")
                             df_finale["id"] = range(1, len(df_finale) + 1)
                             buffer = io.BytesIO()
+                            df_finale["COSTO"] = df_finale["COSTO"].replace("", pd.NA)
+                            df_finale["COSTO"] = pd.to_numeric(df_finale["COSTO"], errors="coerce")
                             df_finale["INVIATE AL PROVIDER"] = pd.to_datetime(df_finale["INVIATE AL PROVIDER"], errors="coerce", dayfirst=True)
+                            df_finale["DATA RICHIESTA"] = pd.to_datetime(df_finale["DATA RICHIESTA"], errors="coerce", dayfirst=True)  # <--- AGGIUNGI QUESTA RIGA
                             df_finale["NDG DEBITORE"] = df_finale["NDG DEBITORE"].astype(str)
                             df_finale["MESE"] = df_finale["MESE"].astype(str)
                             df_finale["ANNO"] = df_finale["ANNO"].astype(str)
@@ -137,5 +140,6 @@ def home_Teamleader(df, df_soggetti, nav):
                             nav.file_buffer.append(file_data)
                             nav.upload_file()
                             st.success(f"Aggiunte nuove richieste.")
+
                         else:
                             st.warning("Nessuna nuova richiesta da processare")

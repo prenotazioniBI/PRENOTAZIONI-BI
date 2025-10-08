@@ -14,7 +14,7 @@ def mostra_totale_costi(servizi_scelti):
     totale = sum(costi_servizi.get(servizio, 0) for servizio in servizi_scelti)
     st.info(f"**Totale costi servizi selezionati: {totale:.2f} €**")
 
-def gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_utente, nav):
+def gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_utente, nav, nome_gestore=None):
     col1, col2, _ = st.columns([0.13, 1, 0.6])
     with col1:
         if st.button("⟳", key="refresh_pagina_tab2"):
@@ -31,7 +31,6 @@ def gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_utente, nav):
                 "Per richiedere il rintraccio eredi è necessario rivolgersi tramite email al proprio Team Leader di riferimento.\n" \
                 "" )
         else:
-            
             if "richiesta" not in st.session_state:
                 banner_richiesta_utente(df_soggetti)
             dati_banner = st.session_state.get("richiesta")
@@ -48,8 +47,18 @@ def gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_utente, nav):
                 )
                 mostra_totale_costi(servizi_scelti)
                 st.divider()
+                # Clausola admin: chiedi il nome gestore
+                # ...existing code...
+                user = st.session_state.get("user")
+                if user and user.get("ruolo") == "admin":
+                    nome_gestore = st.text_input("Inserisci il nome e cognome del GESTORE", value=st.session_state["richiesta"].get("GESTORE", ""))
+                    st.warning("** Assicurati di scriverlo correttamente! Nome Cognome")
+                    # Aggiorna sempre il valore nel dizionario richiesta
+                    st.session_state["richiesta"]["GESTORE"] = nome_gestore
+                # ...existing code...
                 if st.button("Conferma invio richiesta", key="conferma_richiesta"):
                     df, esito, msg = menu_utente(df, servizi_scelti, nav)
+                    # ...resto del codice...
                     if esito:
                         nav.upload_file()
                         for key in ["richiesta", "servizi_scelti", "inserimento_richiesta"]:

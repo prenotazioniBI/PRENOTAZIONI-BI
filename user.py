@@ -22,7 +22,7 @@ def menu_utente(df, servizi_scelti, nav):
             df_corrente,
             portafoglio=dati_banner.get("portafoglio", ""),
             centro_costo="", 
-            gestore=user.get("username", ""),
+            gestore=dati_banner.get("GESTORE", user.get("username", "")),
             ndg_debitore=dati_banner.get("ndg_debitore", ""),
             nominativo_posizione=dati_banner.get("nominativo_posizione", ""),
             ndg_nominativo_ricercato=dati_banner.get("ndg_nominativo_ricercato", ""),

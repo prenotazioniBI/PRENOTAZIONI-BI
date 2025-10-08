@@ -67,14 +67,15 @@ def home_admin(df, df_soggetti, nav, df_full):
         if sezione == "NUOVA RICHIESTA":
             st.subheader("NUOVA RICHIESTA")
             richieste = [
-                    "Ricerca eredi accettanti"
-                ]
+                "Ricerca eredi accettanti"
+            ]
             if gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_utente, nav):
-                nome_gestore = st.text_input("Inserisci il nome del GESTORE", "")
-                if nome_gestore:
-                    # Aggiorna il DataFrame (o lo stato) con il nome gestore inserito
-                    if "richiesta" in st.session_state:
-                        st.session_state["richiesta"]["GESTORE"] = nome_gestore
+                # Se l'utente è admin, chiedi il nome del gestore
+                if user and user.get("ruolo") == "admin":
+                    nome_gestore = st.text_input("Inserisci il nome e cognome del GESTORE", "")
+                    if nome_gestore:
+                        if "richiesta" in st.session_state:
+                            st.session_state["richiesta"]["GESTORE"] = nome_gestore
         if sezione == "DASHBOARD":
             st.subheader("DASHBOARD")
             aggrid_pivot_delta(df,
