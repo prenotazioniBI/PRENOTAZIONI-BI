@@ -81,6 +81,8 @@ def home_admin(df, df_soggetti, nav, df_full):
                     if nome_gestore:
                         if "richiesta" in st.session_state:
                             st.session_state["richiesta"]["GESTORE"] = nome_gestore
+                            if "df_full" in st.session_state:
+                                    st.session_state['df_full'] = df  # df aggiornato da salva_richiesta
         if sezione == "DASHBOARD":
             st.subheader("DASHBOARD")
             aggrid_pivot_delta(df,

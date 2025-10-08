@@ -139,19 +139,18 @@ def authentication():
 def main():
     df, df_soggetti, df_utenza = get_files_from_sharepoint()
     df = prepare_data(df)
-
+    
+    # Genera sempre la colonna id come progressivo
+    df["id"] = range(1, len(df) + 1)
     
     # Conversione tipi colonne
     df["COSTO"] = pd.to_numeric(df["COSTO"], errors="coerce")
-
     df["MESE"] = pd.to_numeric(df["MESE"], errors="coerce").astype("Int64")
     df["ANNO"] = pd.to_numeric(df["ANNO"], errors="coerce").astype("Int64")
     if "N. RICHIESTE" in df.columns:
         df["N. RICHIESTE"] = pd.to_numeric(df["N. RICHIESTE"], errors="coerce").astype("Int64")
     if "TOT POSIZIONI" in df.columns:
         df["TOT POSIZIONI"] = pd.to_numeric(df["TOT POSIZIONI"], errors="coerce").astype("Int64")
-    if "id" in df.columns:
-        df["id"] = pd.to_numeric(df["id"], errors="coerce").astype("Int64")
     if "INVIATE AL PROVIDER" in df.columns:
         df["INVIATE AL PROVIDER"] = pd.to_datetime(df["INVIATE AL PROVIDER"], errors="coerce", dayfirst=True)
     if "DATA RICHIESTA" in df.columns:
