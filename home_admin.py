@@ -38,19 +38,24 @@ def home_admin(df, df_soggetti, nav, df_full):
             with col3: 
                 st.write("") 
                 salva = st.button("Salva modifiche", key="salva_modifiche_excel")
-            if "RIFATTURAZIONE" in st.session_state['df_full'].columns:
-                    st.session_state['df_full']["RIFATTURAZIONE"] = (
-                        st.session_state['df_full']["RIFATTURAZIONE"]
-                        .fillna("")
-                        .replace({"NO": ""})
-                        .astype(str)
-                    )
             edited_df = modifica_celle_excel(st.session_state['df_full'])
             if salva:
                 if edited_df is None or edited_df.empty:
                     st.warning("Nessuna modifica da salvare.")
                 else:
-                    st.session_state['df_full'].update(edited_df)
+                    df_full = st.session_state['df_full']
+                    for idx, row in edited_df.iterrows():
+                        if "id" in row and row["id"] in df_full["id"].values:
+                            # Trova l'indice della riga da aggiornare
+                            target_idx = df_full.index[df_full["id"] == row["id"]].tolist()
+                            if target_idx:
+                                for i in target_idx:
+                                    for col in df_full.columns:
+                                        if col in row:
+                                            df_full.at[i, col] = row[col]
+                    st.session_state['df_full'] = df_full
+                if "COSTO" in st.session_state['df_full'].columns:
+                    st.session_state['df_full']["COSTO"] = pd.to_numeric(st.session_state['df_full']["COSTO"], errors="coerce")
                 buffer = BytesIO()
                 st.session_state['df_full'].to_parquet(buffer, index=False)
                 buffer.seek(0)

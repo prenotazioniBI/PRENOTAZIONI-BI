@@ -89,18 +89,13 @@ def salva_richiesta(
     }
 
     df_completo = pd.concat([df, pd.DataFrame([riga])], ignore_index=True)
+    df_completo["id"] = range(1, len(df_completo) + 1)
     df_completo["COSTO"] = df_completo["COSTO"].replace("", pd.NA)
     df_completo["COSTO"] = pd.to_numeric(df_completo["COSTO"], errors="coerce")
     df_completo["DATA RICHIESTA"] = df_completo["DATA RICHIESTA"].replace("", pd.NaT)
     df_completo["DATA RICHIESTA"] = pd.to_datetime(df_completo["DATA RICHIESTA"], errors="coerce", dayfirst=True)
     buffer = BytesIO() 
     df_completo.to_parquet(buffer, index=False)
-    
-    if "id" not in df_completo.columns:
-        df_completo["id"] = range(1, len(df_completo) + 1)
-    else:
-        df_completo["id"] = range(1, len(df_completo) + 1)
-    # Puoi rimuovere la seconda chiamata a to_parquet se non serve
     buffer.seek(0)
     file_content = buffer.getvalue()
     file_data = {
