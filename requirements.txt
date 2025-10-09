@@ -8,3 +8,4 @@ python-stdnum
 streamlit-aggrid
 firebase_admin
 plotly
+streamlit_extras

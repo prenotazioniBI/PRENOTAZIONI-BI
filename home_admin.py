@@ -6,7 +6,7 @@ from io import BytesIO
 import pandas as pd
 from ottimizzazione import gestisci_nuova_richiesta
 from user import menu_utente
-
+from streamlit_extras.stylable_container import stylable_container
 
 
 def home_admin(df, df_soggetti, nav, df_full):
@@ -21,7 +21,6 @@ def home_admin(df, df_soggetti, nav, df_full):
         if sezione == "DA INVIARE":
                 st.subheader("DA INVIARE")
                 mostra_df_filtrato(df_full)
-
         if sezione == "CONVALIDA DATI":
             col2, col3 = st.columns(2)
             with col2:
@@ -125,3 +124,9 @@ def home_admin(df, df_soggetti, nav, df_full):
             col1, spacer, col2 = st.columns([1, 0.1, 1])
             with col1:
                 aggrid_pivot(df_filtrato, "PORTAFOGLIO", "GESTORE", "COSTO", value_name="Totale Importo",group_width=80,sub_width=120,value_width=100,height=500)
+
+
+
+
+
+
