@@ -23,7 +23,7 @@ def home_admin(df, df_soggetti, nav, df_full):
                 mostra_df_filtrato(df_full)
 
         if sezione == "CONVALIDA DATI":
-            col2, col3 = st.columns([0.04, 1])
+            col2, col3 = st.columns(2)
             with col2:
                 st.subheader("CONVALIDA DATI")
             with col3: 
