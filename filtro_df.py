@@ -193,12 +193,6 @@ def mostra_df_filtrato(df):
     df.to_parquet(buffer, index=False)
     buffer.seek(0)
 
-    st.download_button(
-        label="Scarica Excel",
-        data=buffer,
-        file_name="Report.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
 
 
 

@@ -7,10 +7,7 @@ import pandas as pd
 from ottimizzazione import gestisci_nuova_richiesta
 from user import menu_utente
 
-def refreshino(key_suffix=""):
-    refresh = st.button("⟳", key=f"refresh_{key_suffix}")
-    if refresh:
-        st.cache_data.clear()
+
 
 def home_admin(df, df_soggetti, nav, df_full):
     user = st.session_state.get("user")
@@ -19,22 +16,16 @@ def home_admin(df, df_soggetti, nav, df_full):
         st.stop()
     else:
         st.title("Area Admin")
-        sezione = st.sidebar.radio("",["AGGIORNA", "DA INVIARE","NUOVA RICHIESTA", "DASHBOARD"])
+        sezione = st.sidebar.radio("",["CONVALIDA DATI", "DA INVIARE","NUOVA RICHIESTA", "DASHBOARD"])
 
         if sezione == "DA INVIARE":
-            col1, col2, _ = st.columns([0.04, 1, 0.1])
-            with col1:
-                refreshino(key_suffix="1")
-            with col2:
                 st.subheader("DA INVIARE")
                 mostra_df_filtrato(df_full)
 
-        if sezione == "AGGIORNA":
-            col1, col2, col3 = st.columns([0.04, 1, 0.2])
-            with col1:
-                refreshino(key_suffix="2")
+        if sezione == "CONVALIDA DATI":
+            col2, col3 = st.columns([0.04, 1])
             with col2:
-                st.subheader("AGGIORNA")
+                st.subheader("CONVALIDA DATI")
             with col3: 
                 st.write("") 
                 salva = st.button("Salva modifiche", key="salva_modifiche_excel")
