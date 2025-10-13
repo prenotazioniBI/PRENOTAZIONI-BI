@@ -108,7 +108,7 @@ def authentication():
                 return None, None
 
             email_norm = email.strip().lower()
-            if not email_norm.endswith("@fbs.it"):
+            if not email_norm.endswith("@fbs.it") or not email_norm.endswith("@fbsnext.it"):
                 st.error("Email non valida")
                 return None, None
                 
