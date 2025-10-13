@@ -5,8 +5,6 @@ import pandas as pd
 from filtro_df import mostra_df_filtrato_home_admin
 import io 
 import datetime
-from datetime import timedelta
-
 
 
 def home_Teamleader(df, df_soggetti, nav):
@@ -23,8 +21,6 @@ def home_Teamleader(df, df_soggetti, nav):
             st.rerun()
         df = mostra_df_filtrato_home_admin(df)
         st.dataframe(df, height =1000)
-
-
     if selezione == "NUOVA RICHIESTA":
         richieste = [
             "Ricerca eredi accettanti",
@@ -75,7 +71,6 @@ def home_Teamleader(df, df_soggetti, nav):
                         (df["C.F."].astype(str).str.strip() == cf) &
                         (df["SERVIZIO RICHIESTO"].astype(str).str.contains("Richiesta massiva", na=False))
                     )
-
                     if mask.any():
                         cf_duplicati.append({
                             "C.F.": cf,

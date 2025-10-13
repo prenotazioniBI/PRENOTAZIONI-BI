@@ -1,39 +1,58 @@
 import pandas as pd
-from datetime import datetime, timedelta
 import streamlit as st
 from filtro_df import mostra_df_filtrato_home_admin
 from io import BytesIO
-
+import os
 
 TENANT_ID = st.secrets["TENANT_ID"] 
 CLIENT_ID = st.secrets["CLIENT_ID"] 
 CLIENT_SECRET = st.secrets["CLIENT_SECRET"] 
 
 
-def visualizza_richieste_per_gestore(df, username):
-    df_gestore = df.copy()
-    richieste_utente = df_gestore[df_gestore["GESTORE"] == username]
-    colonne_da_mostrare = [
-        "DATA RICHIESTA",
-        "C.F.",
-        "NOME SERVIZIO",
-        "INVIATE AL PROVIDER",
-        "PORTAFOGLIO",
-        "NDG DEBITORE",
-        "NOMINATIVO POSIZIONE",
-        "NDG NOMINATIVO RICERCATO",
-        "NOMINATIVO RICERCA"
-    ]
+def crea_file_utente_se_non_esiste(username, nav, folder_path):
+    """Crea file parquet personale per l'utente se non esiste"""
+    filename = f"{username.lower().replace(' ', '_')}_prenotazioni.parquet"
+    file_path = f"{folder_path}/{filename}"
     
-    colonne_presenti = [col for col in colonne_da_mostrare if col in richieste_utente.columns]
-    richieste_utente = richieste_utente.sort_values("DATA RICHIESTA", ascending=False)
-    richieste_utente[colonne_da_mostrare] = richieste_utente[colonne_da_mostrare].fillna("   -    ")
-    return richieste_utente[colonne_presenti]
+    site_id = nav.get_site_id()
+    drive_id, _ = nav.get_drive_id(site_id)
+    
+    # Verifica se esiste
+    if not nav.file_exists(site_id, drive_id, file_path):
+        print(f"📝 Creazione file personale per {username}")
+        
+        # Crea DataFrame vuoto con tutte le colonne
+        colonne = [
+            "PORTAFOGLIO", "CENTRO DI COSTO", "GESTORE", "NDG DEBITORE", 
+            "NOMINATIVO POSIZIONE", "NDG NOMINATIVO RICERCATO", "C.F.", 
+            "SERVIZIO RICHIESTO", "NOME SERVIZIO", "PROVIDER",
+            "INVIATE AL PROVIDER", "COSTO", "MESE", "ANNO", "N. RICHIESTE",
+            "RIFATTURAZIONE", "TOT POSIZIONI", "DATA RICHIESTA", "NOMINATIVO RICERCA", "id"
+        ]
+        
+        df_vuoto = pd.DataFrame(columns=colonne)
+        
+        # Converti in parquet
+        buffer = BytesIO()
+        df_vuoto.to_parquet(buffer, index=False)
+        buffer.seek(0)
+        
+        # Upload su SharePoint
+        success = nav.upload_file_direct(site_id, drive_id, file_path, buffer.getvalue())
+        
+        if success:
+            print(f"File {filename} creato con successo")
+            return True
+        else:
+            print(f"Errore creazione file {filename}")
+            return False
+    else:
+        print(f"✓ File personale già esistente per {username}")
+        return True
 
 
- 
-def salva_richiesta(
-    df,
+def salva_richiesta_utente(
+    username,
     portafoglio,
     centro_costo,
     gestore,
@@ -55,17 +74,120 @@ def salva_richiesta(
     rifiutata,
     nav
 ):
-    oggi = datetime.now()
-    tre_mesi_fa = oggi - timedelta(days=365)
-    mask = (df["C.F."].astype(str).str.strip() == str(cf).strip()) & \
-        (df["NOME SERVIZIO"].astype(str).str.strip() == str(nome_servizio).strip())
+    """Salva richiesta nel file personale dell'utente dopo aver controllato duplicati nel file centrale"""
+    from io import BytesIO
+    import pandas as pd
+    from datetime import datetime, timedelta
+    from urllib.parse import quote
+    import requests
     
-    for data_str in df.loc[mask, "DATA RICHIESTA"]:
-        data_richiesta = pd.to_datetime(data_str, dayfirst=True, errors="coerce")
-        if pd.notnull(data_richiesta) and data_richiesta >= tre_mesi_fa:
-            gestore_str = df.loc[mask, "GESTORE"].iloc[0] if not df.loc[mask, "GESTORE"].empty else ""
-            return df, False, f"Richiesta già fatta il {data_richiesta.date()} - {nome_servizio} - dal gestore {gestore_str}."
-
+    folder_path = st.secrets["FOLDER_PATH"]
+    site_id = nav.get_site_id()
+    drive_id, _ = nav.get_drive_id(site_id)
+    
+    # STEP 1: CONTROLLA DUPLICATI NEL FILE CENTRALE (prenotazioni.parquet)
+    file_centrale = f"{folder_path}/prenotazioni.parquet"
+    
+    try:
+        encoded_path = quote(file_centrale)
+        url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/root:/{encoded_path}:/content"
+        headers = {"Authorization": f"Bearer {nav.access_token}"}
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            df_centrale = pd.read_parquet(BytesIO(response.content))
+            print(f"✓ File centrale caricato per controllo: {len(df_centrale)} righe")
+            
+            # Converti data_richiesta in datetime
+            if isinstance(data_richiesta, str):
+                data_richiesta_dt = pd.to_datetime(data_richiesta, errors="coerce", dayfirst=True)
+            else:
+                data_richiesta_dt = pd.to_datetime(data_richiesta, errors="coerce")
+            
+            # Converti colonna DATA RICHIESTA in datetime
+            df_centrale["DATA RICHIESTA"] = pd.to_datetime(df_centrale["DATA RICHIESTA"], errors="coerce", dayfirst=True)
+            
+            # Filtra richieste con stesso CF e stesso servizio
+            richieste_simili = df_centrale[
+                (df_centrale["C.F."] == cf) & 
+                (df_centrale["NOME SERVIZIO"] == nome_servizio)
+            ].copy()
+            
+            if not richieste_simili.empty:
+                # Calcola differenza in giorni
+                richieste_simili["giorni_fa"] = (data_richiesta_dt - richieste_simili["DATA RICHIESTA"]).dt.days
+                
+                # Filtra solo quelle degli ultimi 365 giorni
+                richieste_recenti = richieste_simili[
+                    (richieste_simili["giorni_fa"] >= 0) & 
+                    (richieste_simili["giorni_fa"] <= 365)
+                ]
+                
+                if not richieste_recenti.empty:
+                    # Prendi la più recente
+                    richiesta_precedente = richieste_recenti.sort_values("DATA RICHIESTA", ascending=False).iloc[0]
+                    
+                    giorni_fa = int(richiesta_precedente["giorni_fa"])
+                    data_precedente = richiesta_precedente["DATA RICHIESTA"].strftime("%d/%m/%Y")
+                    gestore_precedente = richiesta_precedente["GESTORE"]
+                    
+                    # Formatta messaggio
+                    if giorni_fa == 0:
+                        tempo_msg = "oggi"
+                    elif giorni_fa == 1:
+                        tempo_msg = "1 giorno fa"
+                    elif giorni_fa < 30:
+                        tempo_msg = f"{giorni_fa} giorni fa"
+                    elif giorni_fa < 365:
+                        mesi = giorni_fa // 30
+                        tempo_msg = f"{mesi} {'mese' if mesi == 1 else 'mesi'} fa ({giorni_fa} giorni)"
+                    else:
+                        tempo_msg = f"{giorni_fa} giorni fa"
+                    
+                    msg_errore = (
+                        f"RICHIESTA DUPLICATA\n"
+                        f"Servizio '{nome_servizio}' per CF {cf} già richiesto:\n"
+                        f"📅 Data: {data_precedente} ({tempo_msg})\n"
+                        f"👤 Gestore: {gestore_precedente}\n"
+                        f"⏳ Puoi richiederlo nuovamente tra {365 - giorni_fa} giorni"
+                    )
+                    
+                    return pd.DataFrame(), False, msg_errore
+        else:
+            print(f"File centrale non trovato, procedo senza controllo duplicati")
+            
+    except Exception as e:
+        print(f"Errore controllo duplicati: {e}")
+    
+    # STEP 2: SE NON CI SONO DUPLICATI, SALVA NEL FILE PERSONALE
+    filename = f"{gestore.lower().replace(' ', '_')}_prenotazioni.parquet"
+    file_path = f"{folder_path}/{filename}"
+    
+    # Assicurati che il file personale esista
+    crea_file_utente_se_non_esiste(gestore, nav, folder_path)
+    
+    # Carica file personale
+    try:
+        encoded_path = quote(file_path)
+        url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/root:/{encoded_path}:/content"
+        headers = {"Authorization": f"Bearer {nav.access_token}"}
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            df_personale = pd.read_parquet(BytesIO(response.content))
+            print(f"✓ File personale caricato: {len(df_personale)} righe")
+        else:
+            raise Exception(f"File non trovato")
+    except Exception as e:
+        print(f"Creo nuovo file personale: {e}")
+        df_personale = pd.DataFrame(columns=[
+            "PORTAFOGLIO", "CENTRO DI COSTO", "GESTORE", "NDG DEBITORE", 
+            "NOMINATIVO POSIZIONE", "NDG NOMINATIVO RICERCATO", "NOMINATIVO RICERCA",
+            "C.F.", "NOME SERVIZIO", "PROVIDER", "INVIATE AL PROVIDER", "COSTO", 
+            "MESE", "ANNO", "N. RICHIESTE", "RIFATTURAZIONE", "TOT POSIZIONI", 
+            "DATA RICHIESTA", "SERVIZIO RICHIESTO", "id"
+        ])
+    # Crea nuova riga
     riga = {
         "PORTAFOGLIO": portafoglio,
         "CENTRO DI COSTO": centro_costo,
@@ -77,7 +199,7 @@ def salva_richiesta(
         "C.F.": cf,
         "NOME SERVIZIO": nome_servizio,
         "PROVIDER": provider,
-       "INVIATE AL PROVIDER": pd.to_datetime(data_invio, errors="coerce", dayfirst=True) if data_invio else pd.NaT,
+        "INVIATE AL PROVIDER": pd.to_datetime(data_invio, errors="coerce", dayfirst=True) if data_invio else pd.NaT,
         "COSTO": costo,
         "MESE": mese,
         "ANNO": anno,
@@ -87,29 +209,182 @@ def salva_richiesta(
         "DATA RICHIESTA": data_richiesta,
         "SERVIZIO RICHIESTO": "Richiesta singola gestore"
     }
-
-    df_completo = pd.concat([df, pd.DataFrame([riga])], ignore_index=True)
-    df_completo["id"] = range(1, len(df_completo) + 1)
-    df_completo["COSTO"] = df_completo["COSTO"].replace("", pd.NA)
-    df_completo["COSTO"] = pd.to_numeric(df_completo["COSTO"], errors="coerce")
-    df_completo["DATA RICHIESTA"] = df_completo["DATA RICHIESTA"].replace("", pd.NaT)
-    df_completo["DATA RICHIESTA"] = pd.to_datetime(df_completo["DATA RICHIESTA"], errors="coerce", dayfirst=True)
-    buffer = BytesIO() 
-    df_completo.to_parquet(buffer, index=False)
-    buffer.seek(0)
-    file_content = buffer.getvalue()
-    file_data = {
-        'filename': "General/PRENOTAZIONI_BI/prenotazioni.parquet",
-        'content': file_content,
-        'size': len(file_content)
-    }
-    nav.file_buffer.append(file_data)
     
-    return df_completo, True, f"Richiesta salvata con successo - {nome_servizio}"
+    # Genera ID progressivo solo per questo file utente
+    riga["id"] = df_personale["id"].max() + 1 if not df_personale.empty and "id" in df_personale.columns else 1
+    
+    # Aggiungi al DataFrame personale
+    df_completo = pd.concat([df_personale, pd.DataFrame([riga])], ignore_index=True)
+    
+    # Conversioni tipo
+    df_completo["COSTO"] = pd.to_numeric(df_completo["COSTO"], errors="coerce")
+    df_completo["DATA RICHIESTA"] = pd.to_datetime(df_completo["DATA RICHIESTA"], errors="coerce", dayfirst=True)
+    
+    # Salva su SharePoint
+    buffer_out = BytesIO()
+    df_completo.to_parquet(buffer_out, index=False)
+    buffer_out.seek(0)
+    
+    success = nav.upload_file_direct(site_id, drive_id, file_path, buffer_out.getvalue())
+    
+    if success:
+        return df_completo, True, f"Richiesta salvata: {nome_servizio}"
+    else:
+        return df_personale, False, f"Errore salvataggio: {nome_servizio}"
 
 
+def unifica_file_utenti(nav, folder_path):
+    """
+    Unifica tutti i file *_prenotazioni.parquet in prenotazioni.parquet
+    Mantiene lo storico e aggiunge solo le nuove righe che NON sono duplicate (stesso CF + servizio entro 1 anno)
+    """
+    from datetime import datetime, timedelta
+    
+    site_id = nav.get_site_id()
+    drive_id, _ = nav.get_drive_id(site_id)
+    
+    # Scarica il file centrale (storico)
+    file_path_centrale = f"{folder_path}/prenotazioni.parquet"
+    
+    try:
+        file_data = nav.download_file(site_id, drive_id, file_path_centrale)
+        df_centrale = pd.read_parquet(BytesIO(file_data['content']))
+        print(f"📂 File centrale caricato: {len(df_centrale)} righe")
+    except Exception as e:
+        print(f"File centrale non trovato, creo nuovo: {e}")
+        df_centrale = pd.DataFrame()
+    
+    # Lista tutti i file utente
+    user_files = nav.list_user_files(site_id, drive_id)
+    print(f"📋 Trovati {len(user_files)} file utente")
+    
+    df_list = []
+    
+    for user_file in user_files:
+        try:
+            file_path_user = f"{folder_path}/{user_file}"
+            file_data = nav.download_file(site_id, drive_id, file_path_user)
+            df_user = pd.read_parquet(BytesIO(file_data['content']))
+            
+            if not df_user.empty:
+                print(f"  ✓ {user_file}: {len(df_user)} righe")
+                df_list.append(df_user)
+            else:
+                print(f"  ⊘ {user_file}: vuoto")
+                
+        except Exception as e:
+            print(f"  ✗ Errore lettura {user_file}: {e}")
+    
+    if not df_list:
+        return df_centrale, 0, "Nessun file utente da unificare"
+    
+    # Unisci tutti i DataFrame utente
+    df_nuovi = pd.concat(df_list, ignore_index=True)
+    print(f"\n📊 Totale righe dai file utente: {len(df_nuovi)}")
+    
+    # Converti date
+    df_nuovi["DATA RICHIESTA"] = pd.to_datetime(df_nuovi["DATA RICHIESTA"], errors="coerce", dayfirst=True)
+    
+    if df_centrale.empty:
+        # Se il file centrale è vuoto, usa tutti i nuovi dati
+        df_finale = df_nuovi.copy()
+        df_finale["id"] = range(1, len(df_finale) + 1)
+        righe_aggiunte = len(df_finale)
+    else:
+        # Converti date nel centrale
+        df_centrale["DATA RICHIESTA"] = pd.to_datetime(df_centrale["DATA RICHIESTA"], errors="coerce", dayfirst=True)
+        
+        # Per ogni riga nuova, controlla se è duplicata
+        righe_da_aggiungere = []
+        righe_duplicate = 0
+        
+        for idx, riga_nuova in df_nuovi.iterrows():
+            cf_nuovo = riga_nuova["C.F."]
+            servizio_nuovo = riga_nuova["NOME SERVIZIO"]
+            data_nuovo = riga_nuova["DATA RICHIESTA"]
+            
+            # Cerca richieste simili nel centrale
+            richieste_simili = df_centrale[
+                (df_centrale["C.F."] == cf_nuovo) & 
+                (df_centrale["NOME SERVIZIO"] == servizio_nuovo)
+            ].copy()
+            
+            e_duplicato = False
+            
+            if not richieste_simili.empty and pd.notna(data_nuovo):
+                # Calcola differenza in giorni
+                richieste_simili["giorni_diff"] = (data_nuovo - richieste_simili["DATA RICHIESTA"]).dt.days
+                
+                # Se esiste una richiesta entro 365 giorni, è duplicato
+                duplicati_recenti = richieste_simili[
+                    (richieste_simili["giorni_diff"].abs() <= 365)
+                ]
+                
+                if not duplicati_recenti.empty:
+                    e_duplicato = True
+                    righe_duplicate += 1
+            
+            if not e_duplicato:
+                righe_da_aggiungere.append(riga_nuova)
+        
+        print(f"✨ Righe nuove da aggiungere: {len(righe_da_aggiungere)}")
+        print(f"Righe duplicate ignorate: {righe_duplicate}")
+        
+        if righe_da_aggiungere:
+            df_da_aggiungere = pd.DataFrame(righe_da_aggiungere)
+            df_finale = pd.concat([df_centrale, df_da_aggiungere], ignore_index=True)
+            righe_aggiunte = len(righe_da_aggiungere)
+        else:
+            df_finale = df_centrale
+            righe_aggiunte = 0
+        
+        # Rigenera ID progressivi
+        df_finale["id"] = range(1, len(df_finale) + 1)
+    
+    # Conversioni tipo
+    df_finale["N. RICHIESTE"] = df_finale["N. RICHIESTE"].astype(str)
+    df_finale["TOT POSIZIONI"] = df_finale["TOT POSIZIONI"].astype(str)
+    df_finale["MESE"] = df_finale["MESE"].astype(str)
+    df_finale["ANNO"] = df_finale["ANNO"].astype(str)
+    df_finale["COSTO"] = pd.to_numeric(df_finale["COSTO"], errors="coerce")
+    df_finale["DATA RICHIESTA"] = pd.to_datetime(df_finale["DATA RICHIESTA"], errors="coerce", dayfirst=True)
+    df_finale["INVIATE AL PROVIDER"] = pd.to_datetime(df_finale["INVIATE AL PROVIDER"], errors="coerce", dayfirst=True)
+    
+    # Salva file unificato
+    buffer_out = BytesIO()
+    df_finale.to_parquet(buffer_out, index=False)
+    buffer_out.seek(0)
+    
+    success = nav.upload_file_direct(site_id, drive_id, file_path_centrale, buffer_out.getvalue())
+    
+    if success:
+        msg = f"Unificazione completata: {righe_aggiunte} nuove righe aggiunte (totale: {len(df_finale)})"
+        if righe_duplicate > 0:
+            msg += f"\n{righe_duplicate} duplicati ignorati"
+        return df_finale, righe_aggiunte, msg
+    else:
+        return df_centrale, 0, "Errore durante l'unificazione"
 
-############### funzioni per l'admin
+
+def visualizza_richieste_per_gestore(df, username):
+    df_gestore = df.copy()
+    richieste_utente = df_gestore[df_gestore["GESTORE"] == username]
+    colonne_da_mostrare = [
+        "DATA RICHIESTA",
+        "C.F.",
+        "NOME SERVIZIO",
+        "INVIATE AL PROVIDER",
+        "PORTAFOGLIO",
+        "NDG DEBITORE",
+        "NOMINATIVO POSIZIONE",
+        "NDG NOMINATIVO RICERCATO",
+        "NOMINATIVO RICERCA"
+    ]
+    
+    colonne_presenti = [col for col in colonne_da_mostrare if col in richieste_utente.columns]
+    richieste_utente = richieste_utente.sort_values("DATA RICHIESTA", ascending=False)
+    richieste_utente[colonne_da_mostrare] = richieste_utente[colonne_da_mostrare].fillna("   -    ")
+    return richieste_utente[colonne_presenti]
 
 
 def visualizza_richieste_per_stato_invio_provider(df):
@@ -153,38 +428,6 @@ def visualizza_richieste_Evase(df):
     ordino_per_stato = df.sort_values("DATA RICHIESTA", ascending=False)
     return ordino_per_stato
 
-# def modifica_celle_excel_eredi(df, mostra_editor=True):
-#     df = df[
-#     ((df["NOME SERVIZIO"] == "Ricerca eredi accettanti") | (df["NOME SERVIZIO"] == "Ricerca eredi")) &
-#     (df["CONVALIDA TL"] == "") &  (df["INVIATE AL PROVIDER"].isnull())]
-                                        
-#     if not df.empty:
-#         colonne = ["C.F.", "DATA RICHIESTA", "NOME SERVIZIO","GESTORE", "PORTAFOGLIO", "NDG DEBITORE", "NOMINATIVO POSIZIONE", 
-#                 "NDG NOMINATIVO RICERCATO", "NOMINATIVO RICERCA", "CONVALIDA TL"]
-#         cols_to_show = [col for col in colonne if col in df.columns]
-#         if 'id' in df.columns and 'id' not in cols_to_show:
-#                 cols_to_show.append('id')
-#         df = df[cols_to_show] 
-        
-#         if mostra_editor:
-#             df_copy = df.copy().reset_index(drop=True)
-#             df_copy = df_copy.loc[:, ~df_copy.columns.duplicated()]
-#             edited_df = st.data_editor(
-#                 df_copy,
-#                 num_rows="dynamic",
-#                 height=2000,
-#                 use_container_width=True,
-#                 key="editor_admin",
-#                 column_config={"CONVALIDA TL": st.column_config.SelectboxColumn("CONVALIDA TL", options=["", "VALIDA", "NON VALIDA"], required=False)
-#                 }
-#             )
-#             return edited_df
-#         return edited_df
-#     else:
-#         col1, col2, col3 = st.columns(3)
-#         with col2:
-#             st.warning("NESSUNA RICHIESTA EREDI IN SOSPESO..")
-
 
 def modifica_celle_excel(df, mostra_editor=True):
     df_filtered = mostra_df_filtrato_home_admin(st.session_state['df_full'])
@@ -213,7 +456,7 @@ def modifica_celle_excel(df, mostra_editor=True):
         if 'NDG NOMINATIVO RICERCATO' in df_copy.columns:
             df_copy['NDG NOMINATIVO RICERCATO'] = df_copy['NDG NOMINATIVO RICERCATO'].fillna('').astype(str)
         if 'COSTO' in df_copy.columns:
-            df_copy['COSTO'] = df_copy['COSTO'].astype(str)
+            df_copy["COSTO"] = pd.to_numeric(df_copy["COSTO"].replace('', 0), errors="coerce")
         df_copy["INVIATE AL PROVIDER"] = pd.to_datetime(df_copy["INVIATE AL PROVIDER"], format="mixed", dayfirst=True, errors="coerce")        
         edited_df = st.data_editor(
             df_copy,
@@ -231,7 +474,7 @@ def modifica_celle_excel(df, mostra_editor=True):
                 "RIFATTURAZIONE": st.column_config.SelectboxColumn("RIFATTURAZIONE", options=["", "SI", "NO"], required=False),
                 "INVIATE AL PROVIDER": st.column_config.DateColumn("INVIATE AL PROVIDER", format="DD.MM.YYYY", required=False),
                 "CENTRO DI COSTO": st.column_config.SelectboxColumn("CENTRO DI COSTO", options=["ACERO SPV", "CLESSIDRA", "CF PLUS", "FBS"], required=False), 
-                "COSTO": st.column_config.TextColumn("COSTO", required=False),
+                "COSTO": st.column_config.NumberColumn("COSTO", required=False, format="%.2f"),
                 "PORTAFOGLIO": st.column_config.SelectboxColumn("PORTAFOGLIO", options=[
                     "", "Lotto Acero 1", "Lotto Banca di Imola 2", "Lotto Banca Imola", 
                     "Lotto Banca Pop Valconca", "Lotto Banca Pop Valconca - Acquisto", 
@@ -253,12 +496,6 @@ def modifica_celle_excel(df, mostra_editor=True):
     return df_filtered
 
 
-
-
-################## team leader #################################
-
-
-
 def visualizza_richieste_TeamLeader(df):
     df = df.copy()
     colonne_principali = [
@@ -278,9 +515,3 @@ def visualizza_richieste_TeamLeader(df):
     df = df[colonne_principali] 
     ordino_per_stato = df.sort_values("DATA RICHIESTA", ascending=False)
     return ordino_per_stato
-
-
-
-
-##############################################################################
-

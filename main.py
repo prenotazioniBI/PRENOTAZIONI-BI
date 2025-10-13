@@ -9,44 +9,50 @@ from home_admin import home_admin
 from firebase_admin import credentials
 import firebase_admin
 from firebase import firebase_register, firebase_login, firebase_forgot_password
-
+from excel_funzioni import crea_file_utente_se_non_esiste
+import os
 
 if not firebase_admin._apps:
     cred = credentials.Certificate(dict(st.secrets["firebase_key"]))
     firebase_admin.initialize_app(cred)
 
+st.set_page_config(page_title="Prenotazioni BI", page_icon="👤", layout="wide")
 
-st.set_page_config(page_title="Prenotazioni BI",page_icon="👤",layout="wide")
-
-
+SITE_URL = st.secrets["SITE_URL"]
 TENANT_ID = st.secrets["TENANT_ID"]
 CLIENT_ID = st.secrets["CLIENT_ID"]
 CLIENT_SECRET = st.secrets["CLIENT_SECRET"]
-
+LIBRARY_NAME = st.secrets["LIBRARY_NAME"]
+FOLDER_PATH = st.secrets["FOLDER_PATH"]
 
 @st.cache_data(show_spinner="Scarico dati da Sharepoint...")  
 def get_files_from_sharepoint():
-    nav = SharePointNavigator(TENANT_ID, CLIENT_ID, CLIENT_SECRET)
+    nav = SharePointNavigator(
+        SITE_URL,
+        TENANT_ID,
+        CLIENT_ID,
+        CLIENT_SECRET,
+        LIBRARY_NAME,
+        FOLDER_PATH
+    )
     nav.login()
     site_id = nav.get_site_id()
     drive_id, _ = nav.get_drive_id(site_id)
     
-    prenotazioni_data = nav.download_file(site_id, drive_id, "General/PRENOTAZIONI_BI/prenotazioni.parquet")
-    soggetti_data = nav.download_file(site_id, drive_id, "General/PRENOTAZIONI_BI/soggetti.parquet")
-    utenza = nav.download_file(site_id, drive_id, "General/PRENOTAZIONI_BI/utenza.xlsx")
+    prenotazioni_data = nav.download_file(site_id, drive_id, f"{FOLDER_PATH}/prenotazioni.parquet")
+    soggetti_data = nav.download_file(site_id, drive_id, f"{FOLDER_PATH}/soggetti.parquet")
+    utenza = nav.download_file(site_id, drive_id, f"{FOLDER_PATH}/utenza.xlsx")
     
-
     df_utenza = pd.read_excel(io.BytesIO(utenza["content"]))
     df = pd.read_parquet(io.BytesIO(prenotazioni_data['content']))
-     
         
     if 'id' not in df.columns:
         df.insert(0, 'id', range(len(df)))
 
-
     df_soggetti = pd.read_parquet(io.BytesIO(soggetti_data['content']))
     
     return df, df_soggetti, df_utenza
+
 
 def prepare_data(df):
     colonne = [
@@ -61,14 +67,19 @@ def prepare_data(df):
     if 'id' in df.columns and 'id' not in colonne_esistenti:
         colonne_esistenti.append('id')
     df = df[colonne_esistenti]
-    
     return df
 
 def get_navigator():
-    nav = SharePointNavigator(TENANT_ID, CLIENT_ID, CLIENT_SECRET)
+    nav = SharePointNavigator(
+        SITE_URL,
+        TENANT_ID,
+        CLIENT_ID,
+        CLIENT_SECRET,
+        LIBRARY_NAME,
+        FOLDER_PATH
+    )
     nav.login()
     return nav
-
 
 SPECIAL_USERS = {
     "filippo.strocchi@fbs.it": ("analista", "Filippo Strocchi"),
@@ -92,7 +103,6 @@ def authentication():
                 password = st.text_input("Crea Password", type="password")
             elif menu == "Login":
                 password = st.text_input("Inserisci Password", type="password")
-            # Nessun campo password per "Password dimenticata"
             submit = st.form_submit_button("Invia")
             if not submit:
                 return None, None
@@ -101,12 +111,22 @@ def authentication():
             if not email_norm.endswith("@fbs.it"):
                 st.error("Email non valida")
                 return None, None
-
+                
             if menu == "Crea account":
                 username = email_norm.split("@")[0].replace(".", " ").title()
                 ok, msg = firebase_register(email_norm, password)
                 if ok:
-                    st.success(f" Registrato come: {username}")
+                    st.success(f"Registrato come: {username}")
+                    
+                    # CREA FILE PARQUET PERSONALE SU SHAREPOINT
+                    with st.spinner("Creazione file personale..."):
+                        nav = get_navigator()
+                        file_creato = crea_file_utente_se_non_esiste(username, nav, FOLDER_PATH)
+                        
+                        if file_creato:
+                            st.success(f"File personale creato per {username}")
+                        else:
+                            st.warning("Impossibile creare file personale, contatta l'amministratore")
                 else:
                     st.error(msg)
                 return None, None
@@ -119,10 +139,17 @@ def authentication():
                     else:
                         ruolo = "utente"
                         username = email_norm.split("@")[0].replace(".", " ").title()
+                    
+                    # Verifica che il file personale esista (per utenti vecchi)
+                    if ruolo == "utente":
+                        nav = get_navigator()
+                        crea_file_utente_se_non_esiste(username, nav, FOLDER_PATH)
+                    
                     return ruolo, username
                 else:
                     st.error(user_info)
                 return None, None
+                
             elif menu == "Password dimenticata":
                 ok, msg = firebase_forgot_password(email_norm)
                 if ok:
@@ -136,6 +163,7 @@ def authentication():
                 else:
                     st.error(msg)
                 return None, None
+
 def main():
     df, df_soggetti, df_utenza = get_files_from_sharepoint()
     df = prepare_data(df)
@@ -172,7 +200,6 @@ def main():
             st.stop()
 
     user = st.session_state.user
-    
 
     nav = get_navigator()
     

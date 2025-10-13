@@ -1,132 +1,176 @@
 import streamlit as st
-from filtro_df import  mostra_df_filtrato
-from excel_funzioni import modifica_celle_excel
-from grafici import aggrid_pivot, aggrid_pivot_delta
-from io import BytesIO
 import pandas as pd
+from excel_funzioni import (
+    modifica_celle_excel, 
+    visualizza_richieste_per_stato_invio_provider,
+    visualizza_richieste_Evase,
+    unifica_file_utenti
+)
+from io import BytesIO
 from ottimizzazione import gestisci_nuova_richiesta
-from user import menu_utente
-from streamlit_extras.stylable_container import stylable_container
-
+from admin_menu import menu_admin
 
 def home_admin(df, df_soggetti, nav, df_full):
-    user = st.session_state.get("user")
-    if not user or user.get("ruolo") != "admin":
-        st.warning("Sessione scaduta o non autorizzata. Effettua di nuovo il login.")
-        st.stop()
-    else:
-        st.title("Area Admin")
-        sezione = st.sidebar.radio("",["CONVALIDA DATI", "DA INVIARE","NUOVA RICHIESTA", "DASHBOARD"])
-
-        if sezione == "DA INVIARE":
-                st.subheader("DA INVIARE")
-                mostra_df_filtrato(df_full)
-        if sezione == "CONVALIDA DATI":
-            col2, col3 = st.columns(2)
-            with col2:
-                st.subheader("CONVALIDA DATI")
-            with col3: 
-                st.write("") 
-                salva = st.button("Salva modifiche", key="salva_modifiche_excel")
-            edited_df = modifica_celle_excel(st.session_state['df_full'])
-            if salva:
-                if edited_df is None or edited_df.empty:
-                    st.warning("Nessuna modifica da salvare.")
-                else:
-                    df_full = st.session_state['df_full']
-                    for idx, row in edited_df.iterrows():
-                        if "id" in row and row["id"] in df_full["id"].values:
-                            # Trova l'indice della riga da aggiornare
-                            target_idx = df_full.index[df_full["id"] == row["id"]].tolist()
-                            if target_idx:
-                                for i in target_idx:
-                                    for col in df_full.columns:
-                                        if col in row:
-                                            df_full.at[i, col] = row[col]
-                    st.session_state['df_full'] = df_full
-                if "COSTO" in st.session_state['df_full'].columns:
-                    st.session_state['df_full']["COSTO"] = pd.to_numeric(st.session_state['df_full']["COSTO"], errors="coerce")
-                buffer = BytesIO()
-                st.session_state['df_full'].to_parquet(buffer, index=False)
-                buffer.seek(0)
-                file_content = buffer.getvalue()
-                file_data = {
-                    'filename': "General/PRENOTAZIONI_BI/prenotazioni.parquet",
-                    'content': file_content,
-                    'size': len(file_content)
-                }
-                nav.file_buffer.append(file_data)
-                nav.upload_file()
+    st.title("Area Admin")
+    
+    selezione = st.sidebar.radio("", [
+        "NUOVA RICHIESTA",
+        "CONVALIDA DATI",
+        "RICHIESTE IN ATTESA", 
+        "RICHIESTE EVASE"
+    ])
+    
+    if selezione == "NUOVA RICHIESTA":
+        st.subheader("Nuova Richiesta - Admin")
+        st.info("Come admin puoi richiedere anche il servizio **Ricerca eredi accettanti**")
+        
+        # Lista completa servizi inclusi eredi
+        richieste_admin = [
+            "Ricerca eredi accettanti",
+            "Info lavorativa Full (residenza + telefono + impiego)",
+            "Ricerca Anagrafica",
+            "Ricerca Telefonica",
+            "Ricerca Anagrafica + Telefono",
+            "Rintraccio Conto corrente"
+        ]
+        
+        # Usa la stessa funzione ma con menu_admin
+        gestisci_nuova_richiesta(df, df_soggetti, richieste_admin, menu_admin, nav)
+    
+    elif selezione == "CONVALIDA DATI":
+        st.subheader("Convalida e Modifica Dati")
+        
+        # BOTTONE AGGIORNA - Unifica tutti i file utente
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col1:
+            if st.button("🔄 AGGIORNA", help="Unifica tutti i file utente (incluso admin) in prenotazioni.parquet"):
+                with st.spinner("Unificazione file in corso..."):
+                    folder_path = st.secrets["FOLDER_PATH"]
+                    df_unificato, righe_aggiunte, msg = unifica_file_utenti(nav, folder_path)
+                    
+                    if righe_aggiunte > 0:
+                        st.success(msg)
+                        # Aggiorna il session state
+                        st.session_state['df_full'] = df_unificato
+                        # Forza il ricaricamento
+                        st.cache_data.clear()
+                        st.rerun()
+                    elif righe_aggiunte == 0:
+                        st.info("Nessuna nuova richiesta da aggiungere")
+                    else:
+                        st.error(msg)
+        
+        with col2:
+            st.info(f"**Totale righe nel database: {len(st.session_state['df_full'])}**")
+        
+        with col3:
+            if st.button("⟳ Refresh"):
                 st.cache_data.clear()
                 st.rerun()
-        if sezione == "NUOVA RICHIESTA":
-            st.subheader("NUOVA RICHIESTA")
-            richieste = [
-                "Ricerca eredi accettanti"
-            ]
-            if gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_utente, nav):
-                # Se l'utente è admin, chiedi il nome del gestore
-                if user and user.get("ruolo") == "admin":
-                    nome_gestore = st.text_input("Inserisci il nome e cognome del GESTORE", "")
-                    if nome_gestore:
-                        if "richiesta" in st.session_state:
-                            st.session_state["richiesta"]["GESTORE"] = nome_gestore
-                            if "df_full" in st.session_state:
-                                    st.session_state['df_full'] = df  # df aggiornato da salva_richiesta
-        if sezione == "DASHBOARD":
-            st.subheader("DASHBOARD")
-            aggrid_pivot_delta(df,
-            group_col="CENTRO DI COSTO",
-            sub_col="NOME SERVIZIO",
-            value_col="COSTO",
-            mese_col="MESE",
-            height=500)
+        
+        st.divider()
+        
+        # Editor dati
+        edited_df = modifica_celle_excel(df, mostra_editor=True)
+        
+        if edited_df is not None and not edited_df.empty:
+            col1, col2 = st.columns(2)
             
-
-            st.subheader("PIVOT")
-
-            df = df[df["INVIATE AL PROVIDER"].notnull()]
-            mesi_italiani = [
-                "Tutti", "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
-                "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
-            ]
-            df["MESE_IT"] = df["MESE"].apply(lambda x: mesi_italiani[int(x)] if pd.notnull(x) and str(x).isdigit() and 0 < int(x) <= 12 else "")
-            mesi_unici = sorted(set(df["MESE_IT"].dropna().unique()) - {""})
-            mesi = ["Tutti"] + mesi_unici
-            anni = df["ANNO"].dropna().unique().tolist()
-            anni.sort()
-            anni.insert(0, "Tutti")
-
-            col_mese, col_anno = st.columns(2)
-            with col_mese:
-                mese_sel = st.pills("Filtra per mese", mesi)
-            with col_anno:
-                anno_sel = st.pills("Filtra per anno", anni)
-
-            df_filtrato = df
-            if mese_sel != "Tutti":
-                df_filtrato = df_filtrato[df_filtrato["MESE_IT"] == mese_sel]
-            if anno_sel != "Tutti":
-                df_filtrato = df_filtrato[df_filtrato["ANNO"] == anno_sel]
-
-            col1, spacer, col2 = st.columns([1, 0.1, 1])
             with col1:
-                aggrid_pivot(df_filtrato, "GESTORE", "PORTAFOGLIO", "COSTO", value_name="Totale Costo", group_width=80,sub_width=130,value_width=130,height=500)
-            with col2:
-                aggrid_pivot(df_filtrato, "GESTORE", "NOME SERVIZIO", "COSTO", value_name="Totale Costo", group_width=80,sub_width=120,value_width=100,height=500)
-               
-            col1, spacer, col2 = st.columns([1, 0.1, 1])
-            with col1:
-                aggrid_pivot(df_filtrato, "CENTRO DI COSTO", "NOME SERVIZIO", "COSTO", value_name="Totale Costo", group_width=80,sub_width=120,value_width=100,height=500)
-            with col2:
-                aggrid_pivot(df_filtrato, "CENTRO DI COSTO", "PORTAFOGLIO", "COSTO", value_name="Totale Importo",group_width=80,sub_width=120,value_width=100,height=500)
+                if st.button("💾 SALVA MODIFICHE", type="primary"):
+                    with st.spinner("Salvataggio in corso..."):
+                        # Aggiorna il DataFrame completo con le modifiche
+                        df_full_updated = st.session_state['df_full'].copy()
+                        
+                        # Mappa le modifiche per ID
+                        for idx, row in edited_df.iterrows():
+                            if 'id' in row:
+                                mask = df_full_updated['id'] == row['id']
+                                if mask.any():
+                                    for col in edited_df.columns:
+                                        if col in df_full_updated.columns:
+                                            df_full_updated.loc[mask, col] = row[col]
+                        
+                        # Salva su SharePoint
+                        folder_path = st.secrets["FOLDER_PATH"]
+                        file_path = f"{folder_path}/prenotazioni.parquet"
+                        
+                        site_id = nav.get_site_id()
+                        drive_id, _ = nav.get_drive_id(site_id)
+                        
+                        buffer = BytesIO()
+                        df_full_updated.to_parquet(buffer, index=False)
+                        buffer.seek(0)
+                        
+                        success = nav.upload_file_direct(site_id, drive_id, file_path, buffer.getvalue())
+                        
+                        if success:
+                            st.success("Modifiche salvate con successo!")
+                            st.session_state['df_full'] = df_full_updated
+                            st.cache_data.clear()
+                            st.rerun()
+                        else:
+                            st.error("Errore durante il salvataggio")
             
-            col1, spacer, col2 = st.columns([1, 0.1, 1])
-            with col1:
-                aggrid_pivot(df_filtrato, "PORTAFOGLIO", "GESTORE", "COSTO", value_name="Totale Importo",group_width=80,sub_width=120,value_width=100,height=500)
-
-
-
-
-
-
+            with col2:
+                # Esporta Excel
+                buffer = BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    edited_df.to_excel(writer, index=False, sheet_name='Dati')
+                buffer.seek(0)
+                
+                st.download_button(
+                    label="📥 SCARICA EXCEL",
+                    data=buffer,
+                    file_name="prenotazioni_modificate.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+    
+    elif selezione == "RICHIESTE IN ATTESA":
+        st.subheader("Richieste in Attesa di Invio al Provider")
+        
+        col1, col2 = st.columns([0.1, 1])
+        with col1:
+            if st.button("⟳", key="refresh_attesa"):
+                st.cache_data.clear()
+                st.rerun()
+        
+        df_attesa = visualizza_richieste_per_stato_invio_provider(df)
+        
+        with col2:
+            st.info(f"**Richieste in attesa: {len(df_attesa)}**")
+        
+        if not df_attesa.empty:
+            st.dataframe(
+                df_attesa,
+                use_container_width=True,
+                height=600,
+                hide_index=True
+            )
+        else:
+            st.success("Nessuna richiesta in attesa")
+    
+    elif selezione == "RICHIESTE EVASE":
+        st.subheader("Richieste Evase")
+        
+        col1, col2 = st.columns([0.1, 1])
+        with col1:
+            if st.button("⟳", key="refresh_evase"):
+                st.cache_data.clear()
+                st.rerun()
+        
+        df_evase = visualizza_richieste_Evase(df)
+        
+        with col2:
+            totale_costo = df_evase["COSTO"].sum() if "COSTO" in df_evase.columns else 0
+            st.info(f"**Richieste evase: {len(df_evase)} | Costo totale: {totale_costo:.2f} €**")
+        
+        if not df_evase.empty:
+            st.dataframe(
+                df_evase,
+                use_container_width=True,
+                height=600,
+                hide_index=True
+            )
+        else:
+            st.info("Nessuna richiesta evasa")
