@@ -113,7 +113,10 @@ def authentication():
                 return None, None
                 
             if menu == "Crea account":
-                username = email_norm.split("@")[0].replace(".", " ").title()
+                username_raw = email_norm.split("@")[0]
+                if username_raw.endswith(".ext"):
+                    username_raw = username_raw[:-4]
+                username = username_raw.replace(".", " ").title()
                 ok, msg = firebase_register(email_norm, password)
                 if ok:
                     st.success(f"Registrato come: {username}")
