@@ -48,7 +48,9 @@ def aggrid_pivot(
         "VALERIA NAPOLEONE": "Valeria Napoleone",
         "carmela lanciano": "Carmela Lanciano",
         "silvia stefanelli": "Silvia Stefanelli",
-        " AGECREDIT": "AGECREDIT"
+        " AGECREDIT": "AGECREDIT",
+        "Lucia Ragone": "Lucia Ragone",
+        "Lucia Ragone ": "Lucia Ragone",
         # aggiungi qui altre normalizzazioni se servono
     }
 
