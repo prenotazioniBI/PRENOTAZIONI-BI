@@ -24,6 +24,7 @@ def home_Teamleader(df, df_soggetti, nav):
     if selezione == "NUOVA RICHIESTA":
         richieste = [
             "Ricerca eredi accettanti",
+            "Rintraccio eredi chiamati con verifica accettazione"
             "Info lavorativa Full (residenza + telefono + impiego)",
             "Ricerca Anagrafica",
             "Ricerca Telefonica",

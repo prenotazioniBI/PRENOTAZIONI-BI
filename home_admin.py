@@ -27,6 +27,7 @@ def home_admin(df, df_soggetti, nav, df_full):
         # Lista completa servizi inclusi eredi
         richieste_admin = [
             "Ricerca eredi accettanti",
+            "Rintraccio eredi chiamati con verifica accettazione",
             "Info lavorativa Full (residenza + telefono + impiego)",
             "Ricerca Anagrafica",
             "Ricerca Telefonica",

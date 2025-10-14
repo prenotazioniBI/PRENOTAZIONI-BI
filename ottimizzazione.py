@@ -5,7 +5,8 @@ from informazioni import dialog_info_richieste
 
 def mostra_totale_costi(servizi_scelti):
     costi_servizi = {
-        "Ricerca eredi accettanti": 50,
+        "Ricerca eredi accettanti": 15,
+        "Rintraccio eredi chiamati con verifica accettazione" : 35,
         "Info lavorativa Full (residenza + telefono + impiego)": 10.5,
         "Ricerca Anagrafica + Telefono": 2.9,
         "Ricerca Anagrafica": 0.6,
