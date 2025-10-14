@@ -386,10 +386,11 @@ def unifica_file_utenti(nav, folder_path):
 
     if "NOME SERVIZIO" in df_finale.columns:
         df_finale["NOME SERVIZIO"] = df_finale["NOME SERVIZIO"].astype(str).str.strip().str.upper()
-    
+    # ...dopo aver creato df_finale e prima di salvarlo...
     chiavi = ["C.F.", "NOME SERVIZIO", "DATA RICHIESTA"]
+    df_finale["NOME SERVIZIO"] = df_finale["NOME SERVIZIO"].astype(str).str.strip().str.upper()
+    df_finale["C.F."] = df_finale["C.F."].astype(str).str.strip().str.upper()
     df_finale = df_finale.drop_duplicates(subset=chiavi, keep="last").reset_index(drop=True)
-
     
     buffer_out = BytesIO()
     df_finale.to_parquet(buffer_out, index=False)
