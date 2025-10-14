@@ -23,7 +23,7 @@ def gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_funzione, nav, nom
     col1, col2, _ = st.columns([0.13, 1, 0.6])
     with col1:
         if st.button("⟳", key="refresh_pagina_tab2"):
-            for key in ["richiesta", "servizi_scelti", "inserimento_richiesta"]:
+            for key in ["richiesta", "servizi_scelti", "inserimento_richiesta", "richiesta_in_corso"]:
                 if key in st.session_state:
                     del st.session_state[key]
             st.rerun()
@@ -86,10 +86,21 @@ def gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_funzione, nav, nom
                 
                 st.divider()
                 
-                if st.button("Conferma invio richiesta", key="conferma_richiesta"):
+                # PROTEZIONE CONTRO DOPPIO CLIC
+                if "richiesta_in_corso" not in st.session_state:
+                    st.session_state["richiesta_in_corso"] = False
+                
+                # Mostra messaggio se la richiesta è in corso
+                if st.session_state["richiesta_in_corso"]:
+                    st.warning("⏳ Richiesta in elaborazione, attendere...")
+                
+                if st.button("Conferma invio richiesta", key="conferma_richiesta", disabled=st.session_state["richiesta_in_corso"]):
                     if not servizi_scelti:
                         st.warning("⚠️ Seleziona almeno un servizio!")
                         st.stop()
+                    
+                    # Blocca il pulsante durante l'elaborazione
+                    st.session_state["richiesta_in_corso"] = True
                     
                     # Chiama la funzione menu appropriata (utente o admin)
                     df, esito, msg = menu_funzione(df, servizi_scelti, nav)
@@ -97,9 +108,11 @@ def gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_funzione, nav, nom
                     if esito:
                         st.success(msg)
                         # Pulisci lo stato
-                        for key in ["richiesta", "servizi_scelti", "inserimento_richiesta"]:
+                        for key in ["richiesta", "servizi_scelti", "inserimento_richiesta", "richiesta_in_corso"]:
                             if key in st.session_state:
                                 del st.session_state[key]
                         st.rerun()
                     else:
                         st.error(msg)
+                        # Riabilita il pulsante in caso di errore
+                        st.session_state["richiesta_in_corso"] = False

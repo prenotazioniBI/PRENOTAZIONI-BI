@@ -232,138 +232,176 @@ def salva_richiesta_utente(
     else:
         return df_personale, False, f"Errore salvataggio: {nome_servizio}"
 
-
 def unifica_file_utenti(nav, folder_path):
     """
-    Unifica tutti i file *_prenotazioni.parquet in prenotazioni.parquet
-    Mantiene lo storico e aggiunge solo le nuove righe che NON sono duplicate (stesso CF + servizio entro 1 anno)
+    Unifica tutti i file *_prenotazioni.parquet in un unico file 'prenotazioni.parquet'.
+    Mantiene lo storico e aggiunge solo le nuove righe che:
+      - NON sono già presenti nello stesso file (deduplicazione interna)
+      - NON sono duplicate rispetto al file centrale (stesso CF + servizio entro 1 anno o stessa data)
     """
-    from datetime import datetime, timedelta
-    
+    import pandas as pd
+    from datetime import datetime
+    from io import BytesIO
+
     site_id = nav.get_site_id()
     drive_id, _ = nav.get_drive_id(site_id)
-    
-    # Scarica il file centrale (storico)
+
+    # 📁 File centrale (storico)
     file_path_centrale = f"{folder_path}/prenotazioni.parquet"
-    
+
     try:
         file_data = nav.download_file(site_id, drive_id, file_path_centrale)
-        df_centrale = pd.read_parquet(BytesIO(file_data['content']))
+        df_centrale = pd.read_parquet(BytesIO(file_data["content"]))
         print(f"📂 File centrale caricato: {len(df_centrale)} righe")
     except Exception as e:
-        print(f"File centrale non trovato, creo nuovo: {e}")
+        print(f"⚠️ File centrale non trovato, creo nuovo: {e}")
         df_centrale = pd.DataFrame()
-    
-    # Lista tutti i file utente
+
+    # 📋 Lista file utente
     user_files = nav.list_user_files(site_id, drive_id)
     print(f"📋 Trovati {len(user_files)} file utente")
-    
+
     df_list = []
-    
+
     for user_file in user_files:
         try:
             file_path_user = f"{folder_path}/{user_file}"
             file_data = nav.download_file(site_id, drive_id, file_path_user)
-            df_user = pd.read_parquet(BytesIO(file_data['content']))
-            
+            df_user = pd.read_parquet(BytesIO(file_data["content"]))
+
             if not df_user.empty:
                 print(f"  ✓ {user_file}: {len(df_user)} righe")
                 df_list.append(df_user)
             else:
                 print(f"  ⊘ {user_file}: vuoto")
-                
         except Exception as e:
             print(f"  ✗ Errore lettura {user_file}: {e}")
-    
+
     if not df_list:
         return df_centrale, 0, "Nessun file utente da unificare"
-    
-    # Unisci tutti i DataFrame utente
+
+    # 🔄 Unisci tutti i DataFrame utente
     df_nuovi = pd.concat(df_list, ignore_index=True)
     print(f"\n📊 Totale righe dai file utente: {len(df_nuovi)}")
-    
-    # Converti date
-    df_nuovi["DATA RICHIESTA"] = pd.to_datetime(df_nuovi["DATA RICHIESTA"], errors="coerce", dayfirst=True)
-    
+
+    # --- 🧹 Normalizzazione dati ---
+    for df in [df_nuovi, df_centrale]:
+        if not df.empty:
+            for col in ["C.F.", "NOME SERVIZIO"]:
+                if col in df.columns:
+                    df[col] = df[col].astype(str).str.strip().str.lower()
+
+    # 🕓 Conversione date
+    for df in [df_nuovi, df_centrale]:
+        if not df.empty and "DATA RICHIESTA" in df.columns:
+            df["DATA RICHIESTA"] = pd.to_datetime(
+                df["DATA RICHIESTA"], errors="coerce", dayfirst=True
+            )
+
+    # --- 1️⃣ Rimuovi duplicati interni (stesso CF + servizio + data) ---
+    df_nuovi = df_nuovi.drop_duplicates(
+        subset=["C.F.", "NOME SERVIZIO", "DATA RICHIESTA"],
+        keep="first",
+    )
+
+    # Se il centrale è vuoto → usa tutti i nuovi dati
     if df_centrale.empty:
-        # Se il file centrale è vuoto, usa tutti i nuovi dati
         df_finale = df_nuovi.copy()
         df_finale["id"] = range(1, len(df_finale) + 1)
         righe_aggiunte = len(df_finale)
+        righe_duplicate = 0
     else:
-        # Converti date nel centrale
-        df_centrale["DATA RICHIESTA"] = pd.to_datetime(df_centrale["DATA RICHIESTA"], errors="coerce", dayfirst=True)
-        
-        # Per ogni riga nuova, controlla se è duplicata
+        # --- 2️⃣ Confronta con centrale per duplicati entro 1 anno ---
         righe_da_aggiungere = []
         righe_duplicate = 0
-        
+
         for idx, riga_nuova in df_nuovi.iterrows():
             cf_nuovo = riga_nuova["C.F."]
             servizio_nuovo = riga_nuova["NOME SERVIZIO"]
             data_nuovo = riga_nuova["DATA RICHIESTA"]
-            
-            # Cerca richieste simili nel centrale
+
+            if pd.isna(data_nuovo):
+                # Se la data è mancante, considerala nuova ma loggala
+                print(f"⚠️ Riga senza DATA RICHIESTA: {cf_nuovo}, {servizio_nuovo}")
+                righe_da_aggiungere.append(riga_nuova)
+                continue
+
             richieste_simili = df_centrale[
-                (df_centrale["C.F."] == cf_nuovo) & 
-                (df_centrale["NOME SERVIZIO"] == servizio_nuovo)
+                (df_centrale["C.F."] == cf_nuovo)
+                & (df_centrale["NOME SERVIZIO"] == servizio_nuovo)
             ].copy()
-            
+
             e_duplicato = False
-            
-            if not richieste_simili.empty and pd.notna(data_nuovo):
-                # Calcola differenza in giorni
-                richieste_simili["giorni_diff"] = (data_nuovo - richieste_simili["DATA RICHIESTA"]).dt.days
-                
-                # Se esiste una richiesta entro 365 giorni, è duplicato
+
+            if not richieste_simili.empty:
+                richieste_simili["giorni_diff"] = (
+                    data_nuovo - richieste_simili["DATA RICHIESTA"]
+                ).dt.days
+
+                # Duplice condizione: stessa data oppure entro 365 giorni
                 duplicati_recenti = richieste_simili[
                     (richieste_simili["giorni_diff"].abs() <= 365)
                 ]
-                
-                if not duplicati_recenti.empty:
+                duplicato_stesso_giorno = richieste_simili[
+                    richieste_simili["DATA RICHIESTA"] == data_nuovo
+                ]
+
+                if not duplicati_recenti.empty or not duplicato_stesso_giorno.empty:
                     e_duplicato = True
                     righe_duplicate += 1
-            
+                    print(
+                        f"⚠️ Duplicato ignorato: CF={cf_nuovo}, "
+                        f"SERVIZIO={servizio_nuovo}, DATA={data_nuovo.date()}"
+                    )
+
             if not e_duplicato:
                 righe_da_aggiungere.append(riga_nuova)
-        
+
         print(f"✨ Righe nuove da aggiungere: {len(righe_da_aggiungere)}")
         print(f"Righe duplicate ignorate: {righe_duplicate}")
-        
+
         if righe_da_aggiungere:
             df_da_aggiungere = pd.DataFrame(righe_da_aggiungere)
             df_finale = pd.concat([df_centrale, df_da_aggiungere], ignore_index=True)
-            righe_aggiunte = len(righe_da_aggiungere)
+            righe_aggiunte = len(df_da_aggiungere)
         else:
-            df_finale = df_centrale
+            df_finale = df_centrale.copy()
             righe_aggiunte = 0
-        
+
         # Rigenera ID progressivi
         df_finale["id"] = range(1, len(df_finale) + 1)
+
+    # --- 🔢 Conversioni di tipo ---
+    for col in ["N. RICHIESTE", "TOT POSIZIONI", "MESE", "ANNO"]:
+        if col in df_finale.columns:
+            df_finale[col] = df_finale[col].astype(str)
+
+    if "COSTO" in df_finale.columns:
+        df_finale["COSTO"] = pd.to_numeric(df_finale["COSTO"], errors="coerce")
+    if "C.F." in df_finale.columns:
+        df_finale["C.F."] = df_finale["C.F."].astype(str).str.upper()
+    for col in ["DATA RICHIESTA", "INVIATE AL PROVIDER"]:
+        if col in df_finale.columns:
+            df_finale[col] = pd.to_datetime(df_finale[col], errors="coerce", dayfirst=True)
+
+    chiavi = ["C.F.", "NOME SERVIZIO", "DATA RICHIESTA"]  # personalizza se vuoi
+    df_finale = df_finale.drop_duplicates(subset=chiavi, keep="last").reset_index(drop=True)
     
-    # Conversioni tipo
-    df_finale["N. RICHIESTE"] = df_finale["N. RICHIESTE"].astype(str)
-    df_finale["TOT POSIZIONI"] = df_finale["TOT POSIZIONI"].astype(str)
-    df_finale["MESE"] = df_finale["MESE"].astype(str)
-    df_finale["ANNO"] = df_finale["ANNO"].astype(str)
-    df_finale["COSTO"] = pd.to_numeric(df_finale["COSTO"], errors="coerce")
-    df_finale["DATA RICHIESTA"] = pd.to_datetime(df_finale["DATA RICHIESTA"], errors="coerce", dayfirst=True)
-    df_finale["INVIATE AL PROVIDER"] = pd.to_datetime(df_finale["INVIATE AL PROVIDER"], errors="coerce", dayfirst=True)
-    
-    # Salva file unificato
     buffer_out = BytesIO()
     df_finale.to_parquet(buffer_out, index=False)
     buffer_out.seek(0)
-    
     success = nav.upload_file_direct(site_id, drive_id, file_path_centrale, buffer_out.getvalue())
-    
+
     if success:
-        msg = f"Unificazione completata: {righe_aggiunte} nuove righe aggiunte (totale: {len(df_finale)})"
+        msg = (
+            f"✅ Unificazione completata: {righe_aggiunte} nuove righe aggiunte "
+            f"(totale: {len(df_finale)})"
+        )
         if righe_duplicate > 0:
-            msg += f"\n{righe_duplicate} duplicati ignorati"
+            msg += f"\n⚠️ {righe_duplicate} duplicati ignorati"
         return df_finale, righe_aggiunte, msg
     else:
-        return df_centrale, 0, "Errore durante l'unificazione"
+        return df_centrale, 0, "❌ Errore durante l'unificazione"
 
 
 def visualizza_richieste_per_gestore(df, username):
