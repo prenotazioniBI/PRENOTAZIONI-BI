@@ -141,7 +141,10 @@ def authentication():
                         ruolo, username = SPECIAL_USERS[email_norm]
                     else:
                         ruolo = "utente"
-                        username = email_norm.split("@")[0].replace(".", " ").title()
+                        username_raw = email_norm.split("@")[0]
+                        if username_raw.endswith(".ext"):
+                            username_raw = username_raw[:-4]
+                        username = username_raw.replace(".", " ").title()
                     
                     # Verifica che il file personale esista (per utenti vecchi)
                     if ruolo == "utente":
