@@ -45,6 +45,8 @@ def home_utente(df, df_soggetti, nav):
                 "RITA NOTO": "Rita Maria Noto",
                 "Rita Maria Noto ": "Rita Maria Noto",
                 "Rita Noto": "Rita Maria Noto",
+                "Ritamaria Noto" :  "Rita Maria Noto",
+                "Mariagiulia Berardi" : "Maria Giulia Berardi",
                 "Rita maria Noto": "Rita Maria Noto",
                 "Ruscelli lisa": "Ruscelli Lisa",
                 "Tiziana Alibrandi ": "Tiziana Alibrandi",

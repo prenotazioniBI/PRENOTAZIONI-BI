@@ -17,10 +17,12 @@ def aggrid_pivot(
     # Mappatura per normalizzare i nomi dei servizi
     mappa_servizi = {
         "Ricerca Telefonica": "Ricerca Telefonica",
+        "ricerca telefonica": "Ricerca Telefonica",
         "Ricerca Telefonica ": "Ricerca Telefonica",
         "Ricerca telefonica ": "Ricerca Telefonica",
         "Ricerca Telefonica (verificato)": "Ricerca Telefonica",
         "Anagrafica+Telefono" : "Ricerca Anagrafica + Telefono",
+        "ricerca anagrafica + telefono" : "Ricerca Anagrafica + Telefono",
         "Rintraccio Eredi Chiamati con verifica accettazione" : "Ricerca eredi",
         "Ricerca eredi accettanti" : "Ricerca eredi"
     }
@@ -40,6 +42,7 @@ def aggrid_pivot(
         "Michele  Oranger": "Michele Oranger",
         "RITA NOTO": "Rita Maria Noto",
         "Rita Maria Noto ": "Rita Maria Noto",
+        "Ritamaria Noto ": "Rita Maria Noto",
         "Rita Noto": "Rita Maria Noto",
         "Rita maria Noto": "Rita Maria Noto",
         "Ruscelli lisa": "Ruscelli Lisa",
@@ -51,6 +54,7 @@ def aggrid_pivot(
         " AGECREDIT": "AGECREDIT",
         "Lucia Ragone": "Lucia Ragone",
         "Lucia Ragone ": "Lucia Ragone",
+        "Mariagiulia Berardi" : "Maria Giulia Berardi"
         # aggiungi qui altre normalizzazioni se servono
     }
 
