@@ -50,7 +50,6 @@ def crea_file_utente_se_non_esiste(username, nav, folder_path):
         print(f"✓ File personale già esistente per {username}")
         return True
 
-
 def salva_richiesta_utente(
     username,
     portafoglio,
@@ -74,7 +73,7 @@ def salva_richiesta_utente(
     rifiutata,
     nav
 ):
-    """Salva richiesta nel file personale dell'utente dopo aver controllato duplicati nel file centrale"""
+    """Salva richiesta nel file personale dell'utente dopo aver controllato duplicati nel file centrale E nel file personale"""
     from io import BytesIO
     import pandas as pd
     from datetime import datetime, timedelta
@@ -84,6 +83,12 @@ def salva_richiesta_utente(
     folder_path = st.secrets["FOLDER_PATH"]
     site_id = nav.get_site_id()
     drive_id, _ = nav.get_drive_id(site_id)
+    
+    # Converti data_richiesta in datetime
+    if isinstance(data_richiesta, str):
+        data_richiesta_dt = pd.to_datetime(data_richiesta, errors="coerce", dayfirst=True)
+    else:
+        data_richiesta_dt = pd.to_datetime(data_richiesta, errors="coerce")
     
     # STEP 1: CONTROLLA DUPLICATI NEL FILE CENTRALE (prenotazioni.parquet)
     file_centrale = f"{folder_path}/prenotazioni.parquet"
@@ -97,12 +102,6 @@ def salva_richiesta_utente(
         if response.status_code == 200:
             df_centrale = pd.read_parquet(BytesIO(response.content))
             print(f"✓ File centrale caricato per controllo: {len(df_centrale)} righe")
-            
-            # Converti data_richiesta in datetime
-            if isinstance(data_richiesta, str):
-                data_richiesta_dt = pd.to_datetime(data_richiesta, errors="coerce", dayfirst=True)
-            else:
-                data_richiesta_dt = pd.to_datetime(data_richiesta, errors="coerce")
             
             # Converti colonna DATA RICHIESTA in datetime
             df_centrale["DATA RICHIESTA"] = pd.to_datetime(df_centrale["DATA RICHIESTA"], errors="coerce", dayfirst=True)
@@ -145,7 +144,7 @@ def salva_richiesta_utente(
                         tempo_msg = f"{giorni_fa} giorni fa"
                     
                     msg_errore = (
-                        f"RICHIESTA DUPLICATA\n"
+                        f"❌ RICHIESTA DUPLICATA (File Centrale)\n"
                         f"Servizio '{nome_servizio}' per CF {cf} già richiesto:\n"
                         f"📅 Data: {data_precedente} ({tempo_msg})\n"
                         f"👤 Gestore: {gestore_precedente}\n"
@@ -154,12 +153,12 @@ def salva_richiesta_utente(
                     
                     return pd.DataFrame(), False, msg_errore
         else:
-            print(f"File centrale non trovato, procedo senza controllo duplicati")
+            print(f"File centrale non trovato, procedo senza controllo duplicati nel centrale")
             
     except Exception as e:
-        print(f"Errore controllo duplicati: {e}")
+        print(f"Errore controllo duplicati file centrale: {e}")
     
-    # STEP 2: SE NON CI SONO DUPLICATI, SALVA NEL FILE PERSONALE
+    # STEP 2: CONTROLLA DUPLICATI NEL FILE PERSONALE DELL'UTENTE
     filename = f"{gestore.lower().replace(' ', '_')}_prenotazioni.parquet"
     file_path = f"{folder_path}/{filename}"
     
@@ -176,6 +175,56 @@ def salva_richiesta_utente(
         if response.status_code == 200:
             df_personale = pd.read_parquet(BytesIO(response.content))
             print(f"✓ File personale caricato: {len(df_personale)} righe")
+            
+            # CONTROLLO DUPLICATI NEL FILE PERSONALE
+            if not df_personale.empty:
+                # Converti colonna DATA RICHIESTA in datetime
+                df_personale["DATA RICHIESTA"] = pd.to_datetime(df_personale["DATA RICHIESTA"], errors="coerce", dayfirst=True)
+                
+                # Filtra richieste con stesso CF e stesso servizio
+                richieste_simili_personali = df_personale[
+                    (df_personale["C.F."] == cf) & 
+                    (df_personale["NOME SERVIZIO"] == nome_servizio)
+                ].copy()
+                
+                if not richieste_simili_personali.empty:
+                    # Calcola differenza in giorni
+                    richieste_simili_personali["giorni_fa"] = (data_richiesta_dt - richieste_simili_personali["DATA RICHIESTA"]).dt.days
+                    
+                    # Filtra solo quelle degli ultimi 365 giorni
+                    richieste_recenti_personali = richieste_simili_personali[
+                        (richieste_simili_personali["giorni_fa"] >= 0) & 
+                        (richieste_simili_personali["giorni_fa"] <= 365)
+                    ]
+                    
+                    if not richieste_recenti_personali.empty:
+                        # Prendi la più recente
+                        richiesta_precedente = richieste_recenti_personali.sort_values("DATA RICHIESTA", ascending=False).iloc[0]
+                        
+                        giorni_fa = int(richiesta_precedente["giorni_fa"])
+                        data_precedente = richiesta_precedente["DATA RICHIESTA"].strftime("%d/%m/%Y")
+                        
+                        # Formatta messaggio
+                        if giorni_fa == 0:
+                            tempo_msg = "oggi"
+                        elif giorni_fa == 1:
+                            tempo_msg = "1 giorno fa"
+                        elif giorni_fa < 30:
+                            tempo_msg = f"{giorni_fa} giorni fa"
+                        elif giorni_fa < 365:
+                            mesi = giorni_fa // 30
+                            tempo_msg = f"{mesi} {'mese' if mesi == 1 else 'mesi'} fa ({giorni_fa} giorni)"
+                        else:
+                            tempo_msg = f"{giorni_fa} giorni fa"
+                        
+                        msg_errore = (
+                            f"❌ RICHIESTA DUPLICATA (Tue Richieste)\n"
+                            f"Hai già richiesto '{nome_servizio}' per CF {cf}:\n"
+                            f"📅 Data: {data_precedente} ({tempo_msg})\n"
+                            f"⏳ Puoi richiederlo nuovamente tra {365 - giorni_fa} giorni"
+                        )
+                        
+                        return pd.DataFrame(), False, msg_errore
         else:
             raise Exception(f"File non trovato")
     except Exception as e:
@@ -187,6 +236,8 @@ def salva_richiesta_utente(
             "MESE", "ANNO", "N. RICHIESTE", "RIFATTURAZIONE", "TOT POSIZIONI", 
             "DATA RICHIESTA", "SERVIZIO RICHIESTO", "id"
         ])
+    
+    # STEP 3: SE NON CI SONO DUPLICATI, SALVA LA NUOVA RICHIESTA
     # Crea nuova riga
     riga = {
         "PORTAFOGLIO": portafoglio,
@@ -228,16 +279,17 @@ def salva_richiesta_utente(
     success = nav.upload_file_direct(site_id, drive_id, file_path, buffer_out.getvalue())
     
     if success:
-        return df_completo, True, f"Richiesta salvata: {nome_servizio}"
+        print(f"✅ Richiesta salvata con successo nel file personale")
+        return df_completo, True, f"✅ Richiesta salvata: {nome_servizio}"
     else:
-        return df_personale, False, f"Errore salvataggio: {nome_servizio}"
-
+        return df_personale, False, f"❌ Errore salvataggio: {nome_servizio}"
 def unifica_file_utenti(nav, folder_path):
     """
     Unifica tutti i file *_prenotazioni.parquet in un unico file 'prenotazioni.parquet'.
     Mantiene lo storico e aggiunge solo le nuove righe che:
       - NON sono già presenti nello stesso file (deduplicazione interna)
       - NON sono duplicate rispetto al file centrale (stesso CF + servizio entro 1 anno o stessa data)
+    Rimuove eventuali duplicati finali nel file unificato.
     """
     import pandas as pd
     from datetime import datetime
@@ -386,11 +438,72 @@ def unifica_file_utenti(nav, folder_path):
 
     if "NOME SERVIZIO" in df_finale.columns:
         df_finale["NOME SERVIZIO"] = df_finale["NOME SERVIZIO"].astype(str).str.strip().str.upper()
-    # ...dopo aver creato df_finale e prima di salvarlo...
+    
+    # --- 🧹 PULIZIA DUPLICATI FINALI NEL FILE UNIFICATO ---
+    print("\n🧹 Controllo duplicati finali nel file unificato...")
+    
+    # Prima rimuovi duplicati esatti (stessa data)
     chiavi = ["C.F.", "NOME SERVIZIO", "DATA RICHIESTA"]
     df_finale["NOME SERVIZIO"] = df_finale["NOME SERVIZIO"].astype(str).str.strip().str.upper()
     df_finale["C.F."] = df_finale["C.F."].astype(str).str.strip().str.upper()
+    
+    righe_prima = len(df_finale)
     df_finale = df_finale.drop_duplicates(subset=chiavi, keep="last").reset_index(drop=True)
+    duplicati_esatti = righe_prima - len(df_finale)
+    if duplicati_esatti > 0:
+        print(f"  ✓ Rimossi {duplicati_esatti} duplicati esatti (stessa data)")
+    
+    # Poi rimuovi duplicati entro 365 giorni (stesso CF + servizio)
+    df_finale = df_finale.sort_values(["C.F.", "NOME SERVIZIO", "DATA RICHIESTA"]).reset_index(drop=True)
+    
+    righe_da_mantenere = []
+    duplicati_365 = 0
+    
+    for cf in df_finale["C.F."].unique():
+        df_cf = df_finale[df_finale["C.F."] == cf].copy()
+        
+        for servizio in df_cf["NOME SERVIZIO"].unique():
+            df_servizio = df_cf[df_cf["NOME SERVIZIO"] == servizio].copy()
+            df_servizio = df_servizio.sort_values("DATA RICHIESTA").reset_index(drop=True)
+            
+            if len(df_servizio) == 1:
+                righe_da_mantenere.append(df_servizio.iloc[0])
+                continue
+            
+            # Controlla ogni coppia di righe consecutive
+            ultima_valida_idx = 0
+            righe_da_mantenere.append(df_servizio.iloc[0])
+            
+            for i in range(1, len(df_servizio)):
+                data_corrente = df_servizio.iloc[i]["DATA RICHIESTA"]
+                data_ultima_valida = df_servizio.iloc[ultima_valida_idx]["DATA RICHIESTA"]
+                
+                if pd.notna(data_corrente) and pd.notna(data_ultima_valida):
+                    giorni_diff = (data_corrente - data_ultima_valida).days
+                    
+                    if giorni_diff <= 365:
+                        # Duplicato entro 365 giorni - scarta
+                        duplicati_365 += 1
+                        print(f"  ⚠️ Rimosso duplicato: CF={cf}, SERVIZIO={servizio}, "
+                              f"DATA={data_corrente.date()} (a {giorni_diff} giorni da {data_ultima_valida.date()})")
+                    else:
+                        # Oltre 365 giorni - mantieni
+                        righe_da_mantenere.append(df_servizio.iloc[i])
+                        ultima_valida_idx = i
+                else:
+                    # Se manca la data, mantieni comunque
+                    righe_da_mantenere.append(df_servizio.iloc[i])
+                    ultima_valida_idx = i
+    
+    if duplicati_365 > 0:
+        df_finale = pd.DataFrame(righe_da_mantenere).reset_index(drop=True)
+        print(f"  ✓ Rimossi {duplicati_365} duplicati entro 365 giorni")
+        print(f"  📊 Righe finali dopo pulizia: {len(df_finale)}")
+    else:
+        print(f"  ✓ Nessun duplicato entro 365 giorni trovato")
+    
+    # Rigenera ID progressivi dopo la pulizia
+    df_finale["id"] = range(1, len(df_finale) + 1)
     
     buffer_out = BytesIO()
     df_finale.to_parquet(buffer_out, index=False)
@@ -403,7 +516,11 @@ def unifica_file_utenti(nav, folder_path):
             f"(totale: {len(df_finale)})"
         )
         if righe_duplicate > 0:
-            msg += f"\n⚠️ {righe_duplicate} duplicati ignorati"
+            msg += f"\n⚠️ {righe_duplicate} duplicati ignorati durante l'unificazione"
+        if duplicati_365 > 0:
+            msg += f"\n🧹 {duplicati_365} duplicati rimossi dal file finale (entro 365 giorni)"
+        if duplicati_esatti > 0:
+            msg += f"\n🧹 {duplicati_esatti} duplicati esatti rimossi (stessa data)"
         return df_finale, righe_aggiunte, msg
     else:
         return df_centrale, 0, "❌ Errore durante l'unificazione"
