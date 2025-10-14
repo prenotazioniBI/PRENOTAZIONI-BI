@@ -384,8 +384,12 @@ def unifica_file_utenti(nav, folder_path):
         if col in df_finale.columns:
             df_finale[col] = pd.to_datetime(df_finale[col], errors="coerce", dayfirst=True)
 
-    chiavi = ["C.F.", "NOME SERVIZIO", "DATA RICHIESTA"]  # personalizza se vuoi
+    if "NOME SERVIZIO" in df_finale.columns:
+        df_finale["NOME SERVIZIO"] = df_finale["NOME SERVIZIO"].astype(str).str.strip().str.upper()
+    
+    chiavi = ["C.F.", "NOME SERVIZIO", "DATA RICHIESTA"]
     df_finale = df_finale.drop_duplicates(subset=chiavi, keep="last").reset_index(drop=True)
+
     
     buffer_out = BytesIO()
     df_finale.to_parquet(buffer_out, index=False)
