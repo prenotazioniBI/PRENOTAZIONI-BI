@@ -4,22 +4,23 @@ import streamlit as st
 def dialog_info_richieste():
     st.info("""
 **Rintraccio residenza anagrafica**  
-*Verifica esistenza CF, evidenza dei soggetti deceduti, rintraccio residenza del soggetto.*
+*Verifica della validità del codice fiscale, evidenza di eventuali soggetti deceduti e ricerca della residenza attuale del soggetto.*
 
 **Rintraccio utenza telefonica verificato**  
-*Rintraccio utenze mobili e fisse.*
+*Ricerca e verifica di utenze telefoniche mobili e fisse intestate al soggetto.*
 
 **Full**  
-*Esistenza CF, evidenza soggetti deceduti, ricerca residenza del soggetto, identificazione datore lavoro e ente erogante, stima del reddito lordo percepito, evidenza di eventuali gravami, check di catasto, protesti, pregiudizievoli da tribunale e conservatorie.*
+*Servizio completo: verifica del codice fiscale, evidenza di eventuali soggetti deceduti, ricerca della residenza, identificazione del datore di lavoro e dell’ente erogante, stima del reddito lordo percepito, evidenza di eventuali gravami, controlli catastali, protesti e pregiudizievoli da tribunali e conservatorie.*
 
 **Eredi accettanti**  
-*Identificazione dei successibili di un soggetto deceduto con evidenza dei dati anagrafici.*
+*Identificazione dei successibili di un soggetto deceduto con evidenza dei relativi dati anagrafici e verifica dell’accettazione dell’eredità.*
 
-**Rintraccio eredi chiamati con verifica accettazione**
+**Rintraccio eredi chiamati con verifica accettazione**  
+*Ricerca degli eredi chiamati all’eredità e verifica della loro eventuale accettazione.*
 
 **Rapporti bancari**  
-*Verifica esistenza CF, ricerca istituti di credito con i quali il debitore intrattiene rapporti raccogliendo ABI e CAB.*
+*Verifica del codice fiscale e ricerca degli istituti di credito con i quali il soggetto intrattiene rapporti, con dettaglio di ABI e CAB.*
 
 **Anagrafica + telefono**  
-*La somma delle due cose.*
+*Combinazione dei servizi di ricerca anagrafica e rintraccio telefonico.*
 """)
