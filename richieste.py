@@ -19,9 +19,14 @@ def banner_richiesta_utente(df_soggetti):
             st.warning("CODICE FISCALE o P.IVA NON VALIDO.")
             st.stop()
         soggetti_cf = df_soggetti[df_soggetti["codiceFiscale"].astype(str) == cf]
+        # --- controllo deceduto ---
+        user = st.session_state.get("user", {})
+        ruolo = user.get("ruolo", "")
         if "deceduto" in soggetti_cf.columns and (soggetti_cf["deceduto"] == "DECEDUTO").any():
+            if ruolo not in ["admin", "team leader"]:
                 st.error("Soggetto deceduto")
                 st.stop()
+        # --- fine controllo deceduto ---
         if not soggetti_cf.empty:
             portafogli = soggetti_cf["portafoglio"].unique().tolist()
             st.session_state.soggetti_cf = soggetti_cf
@@ -31,6 +36,7 @@ def banner_richiesta_utente(df_soggetti):
         else:
             st.error("Soggetto mai censito")
             st.stop()
+    # ...resto della funzione...
     if st.session_state.get("cf_ok", False):
         soggetti_cf = st.session_state.soggetti_cf
         portafogli = st.session_state.portafogli
