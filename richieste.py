@@ -5,7 +5,7 @@ import pandas as pd
 @st.dialog("Inserisci nuova richiesta")
 def banner_richiesta_utente(df_soggetti):
     st.write(f"Inserisci dati:")
-    cf = st.text_input("CODICE FISCALE o P.IVA *")
+    cf = st.text_input("CODICE FISCALE o P.IVA *").strip()
     col1, _ = st.columns(2)
     avanti = col1.button("Avanti")
     df_soggetti = df_soggetti.copy()
