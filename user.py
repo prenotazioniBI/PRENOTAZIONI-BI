@@ -1,7 +1,7 @@
 from datetime import datetime
 from excel_funzioni import salva_richiesta_utente
 import streamlit as st
-
+import pytz
 
 
 def menu_utente(df, servizi_scelti, nav):
@@ -37,7 +37,7 @@ def menu_utente(df, servizi_scelti, nav):
             n_richieste=1,
             rifatturazione="NO",
             tot_posizioni=0,
-            data_richiesta=datetime.now().strftime("%d/%m/%Y %H:%M"),
+            data_richiesta=datetime.now(pytz.timezone("Europe/Rome")).strftime("%d/%m/%Y %H:%M"),
             rifiutata="",
             nav=nav
         )

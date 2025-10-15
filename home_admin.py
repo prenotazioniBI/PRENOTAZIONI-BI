@@ -41,7 +41,6 @@ def home_admin(df, df_soggetti, nav, df_full):
     elif selezione == "CONVALIDA DATI":
         st.subheader("Convalida e Modifica Dati")
         
-        # BOTTONE AGGIORNA - Unifica tutti i file utente
         col1, col2, col3 = st.columns([1, 2, 1])
         with col1:
             if st.button("🔄 AGGIORNA", help="Unifica tutti i file utente (incluso admin) in prenotazioni.parquet"):
@@ -51,9 +50,7 @@ def home_admin(df, df_soggetti, nav, df_full):
                     
                     if righe_aggiunte > 0:
                         st.success(msg)
-                        # Aggiorna il session state
                         st.session_state['df_full'] = df_unificato
-                        # Forza il ricaricamento
                         st.cache_data.clear()
                         st.rerun()
                     elif righe_aggiunte == 0:
@@ -71,28 +68,44 @@ def home_admin(df, df_soggetti, nav, df_full):
         
         st.divider()
         
-        # Editor dati
         edited_df = modifica_celle_excel(df, mostra_editor=True)
         
         if edited_df is not None and not edited_df.empty:
-            col1, col2 = st.columns(2)
+
+            if "🗑️ ELIMINA" in edited_df.columns:
+                righe_da_eliminare = edited_df[edited_df["🗑️ ELIMINA"] == True]
+                num_da_eliminare = len(righe_da_eliminare)
+            else:
+                num_da_eliminare = 0
+            
+            col1, col2, col3 = st.columns(3)
             
             with col1:
                 if st.button("💾 SALVA MODIFICHE", type="primary"):
                     with st.spinner("Salvataggio in corso..."):
-                        # Aggiorna il DataFrame completo con le modifiche
+ 
+                        if "🗑️ ELIMINA" in edited_df.columns:
+                            df_to_save = edited_df[edited_df["🗑️ ELIMINA"] == False].copy()
+                            df_to_save = df_to_save.drop(columns=["🗑️ ELIMINA"])
+                        else:
+                            df_to_save = edited_df.copy()
+ 
                         df_full_updated = st.session_state['df_full'].copy()
+ 
+                        if num_da_eliminare > 0:
+                            ids_da_eliminare = righe_da_eliminare['id'].tolist()
+                            df_full_updated = df_full_updated[~df_full_updated['id'].isin(ids_da_eliminare)]
                         
-                        # Mappa le modifiche per ID
-                        for idx, row in edited_df.iterrows():
+
+                        for idx, row in df_to_save.iterrows():
                             if 'id' in row:
                                 mask = df_full_updated['id'] == row['id']
                                 if mask.any():
-                                    for col in edited_df.columns:
+                                    for col in df_to_save.columns:
                                         if col in df_full_updated.columns:
                                             df_full_updated.loc[mask, col] = row[col]
                         
-                        # Salva su SharePoint
+                      
                         folder_path = st.secrets["FOLDER_PATH"]
                         file_path = f"{folder_path}/prenotazioni.parquet"
                         
@@ -106,7 +119,10 @@ def home_admin(df, df_soggetti, nav, df_full):
                         success = nav.upload_file_direct(site_id, drive_id, file_path, buffer.getvalue())
                         
                         if success:
-                            st.success("Modifiche salvate con successo!")
+                            msg_success = "Modifiche salvate con successo!"
+                            if num_da_eliminare > 0:
+                                msg_success += f" ({num_da_eliminare} righe eliminate)"
+                            st.success(msg_success)
                             st.session_state['df_full'] = df_full_updated
                             st.cache_data.clear()
                             st.rerun()
@@ -114,10 +130,14 @@ def home_admin(df, df_soggetti, nav, df_full):
                             st.error("Errore durante il salvataggio")
             
             with col2:
-                # Esporta Excel
+            
+                df_export = edited_df.copy()
+                if "🗑️ ELIMINA" in df_export.columns:
+                    df_export = df_export.drop(columns=["🗑️ ELIMINA"])
+                
                 buffer = BytesIO()
                 with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                    edited_df.to_excel(writer, index=False, sheet_name='Dati')
+                    df_export.to_excel(writer, index=False, sheet_name='Dati')
                 buffer.seek(0)
                 
                 st.download_button(
@@ -126,7 +146,11 @@ def home_admin(df, df_soggetti, nav, df_full):
                     file_name="prenotazioni_modificate.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
-    
+            
+            with col3:
+                if num_da_eliminare > 0:
+                    st.warning(f"⚠️ {num_da_eliminare} righe selezionate per eliminazione")
+                    
     elif selezione == "RICHIESTE IN ATTESA":
         st.subheader("Richieste in Attesa di Invio al Provider")
         

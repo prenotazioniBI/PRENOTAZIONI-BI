@@ -608,6 +608,10 @@ def modifica_celle_excel(df, mostra_editor=True):
 
     if mostra_editor:
         df_copy = df_filtered.copy().reset_index(drop=True)
+        
+        # Aggiungi colonna checkbox per eliminazione (all'inizio)
+        df_copy.insert(0, "🗑️ ELIMINA", False)
+        
         df_copy = df_copy.loc[:, ~df_copy.columns.duplicated()]
         if 'NDG DEBITORE' in df_copy.columns:
             df_copy['NDG DEBITORE'] = df_copy['NDG DEBITORE'].astype(str)
@@ -618,6 +622,7 @@ def modifica_celle_excel(df, mostra_editor=True):
         if 'COSTO' in df_copy.columns:
             df_copy["COSTO"] = pd.to_numeric(df_copy["COSTO"].replace('', 0), errors="coerce")
         df_copy["INVIATE AL PROVIDER"] = pd.to_datetime(df_copy["INVIATE AL PROVIDER"], format="mixed", dayfirst=True, errors="coerce")        
+        
         edited_df = st.data_editor(
             df_copy,
             num_rows="dynamic",
@@ -625,6 +630,12 @@ def modifica_celle_excel(df, mostra_editor=True):
             use_container_width=True,
             key="editor_admin",
             column_config={
+                "🗑️ ELIMINA": st.column_config.CheckboxColumn(
+                    "🗑️ ELIMINA",
+                    help="Seleziona per eliminare questa riga",
+                    default=False,
+                    required=True
+                ),
                 "PROVIDER": st.column_config.SelectboxColumn(
                     "PROVIDER", options=["AZ", "Abbrevia", "CreditVision", "BD", "Europa"], required=False),
                 "NOMINATIVO RICERCA": st.column_config.TextColumn("NOMINATIVO RICERCA", required=False), 
@@ -650,7 +661,6 @@ def modifica_celle_excel(df, mostra_editor=True):
             }
         )
         
-            
         return edited_df
     
     return df_filtered
