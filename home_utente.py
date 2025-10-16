@@ -1,15 +1,16 @@
 import streamlit as st
 from user import menu_utente
 from ottimizzazione import gestisci_nuova_richiesta
+from user import visualizza_richieste_personali
 import pandas as pd
-from filtro_df import mostra_df_filtrato_utente
 from grafici_utente import Grafici
 
 
 def home_utente(df, df_soggetti, nav):
     """
     Home utente:
-    - Visualizza lo storico completo da prenotazioni.parquet (filtrato per gestore)
+    - Visualizza le richieste personali dal file nomeutente_prenotazioni.parquet
+    - Lo storico completo da prenotazioni.parquet viene usato solo per i grafici
     - Le nuove richieste vanno nel file personale nomeutente_prenotazioni.parquet
     """
     user = st.session_state.get("user")
@@ -20,58 +21,15 @@ def home_utente(df, df_soggetti, nav):
     selezione = st.sidebar.radio("", ["RICHIESTE", "NUOVA RICHIESTA", "ANALISI"])
     
     if selezione == "RICHIESTE":
-        st.subheader("Anteprima richieste")
-        col1, col2, col3 = st.columns([0.2, 1, 1])
+        st.subheader("📋 Le Mie Richieste")
+        st.info("Abbiamo aggiornato la logica di visualizzazione per permetterti " \
+"di vedere subito le richieste appena inviate. Clicca sull’icona di " \
+"aggiornamento e attendi qualche secondo per caricare i dati aggiornati.")
         
-        with col1:
-            if st.button("⟳", key="refresh_pagina_tab1"):
-                st.cache_data.clear()
-                st.rerun()
-        
-        with col2:
-            # Normalizza nomi gestori per confronto
-            mappa_gestori = {
-                "ANTONELLA COCCO": "Antonella cocco",
-                "BEATRICE LAORENZA": "Beatrice Laorenza",
-                "Bacchetta ": "Carlo Bacchetta",
-                "DANIELA RIZZI": "Daniela Rizzi",
-                "FINGEST CREDIT": "Fingest Group",
-                "GIUSEPPE NIGRA": "Giuseppe Nigra",
-                "LAMYAA HAKIM": "Lamyaa Hakim",
-                "MATTEO CATARZI": "Matteo Catarzi",
-                "Magnifico Gelsomina ": "Gelsomina Magnifico",
-                "Mauro Gualtiero ": "Mauro Gualtiero",
-                "Michele  Oranger": "Michele Oranger",
-                "RITA NOTO": "Rita Maria Noto",
-                "Rita Maria Noto ": "Rita Maria Noto",
-                "Rita Noto": "Rita Maria Noto",
-                "Ritamaria Noto" :  "Rita Maria Noto",
-                "Mariagiulia Berardi" : "Maria Giulia Berardi",
-                "Rita maria Noto": "Rita Maria Noto",
-                "Ruscelli lisa": "Ruscelli Lisa",
-                "Tiziana Alibrandi ": "Tiziana Alibrandi",
-                "VALENTINA BARTOLO": "Valentina Bartolo",
-                "VALERIA NAPOLEONE": "Valeria Napoleone",
-                "carmela lanciano": "Carmela Lanciano",
-                "silvia stefanelli": "Silvia Stefanelli",
-                " AGECREDIT": "AGECREDIT"
-            }
-            
-            if "GESTORE" in df.columns:
-                df["GESTORE"] = df["GESTORE"].replace(mappa_gestori)
-            
-            # Filtra per gestore corrente (VISUALIZZA STORICO COMPLETO)
-            username_norm = user["username"].replace(" ", "").lower()
-            df_gestore = df[df["GESTORE"].astype(str).str.replace(" ", "").str.lower() == username_norm]
-            
-            totale = df_gestore["COSTO"].sum() if "COSTO" in df_gestore.columns else 0
-            st.info(f"**Costo totale richieste: {totale:.2f} €**")
-        
-        with col3:
-            st.info(f"**Numero richieste: {len(df_gestore)}**")
-        
-        # Mostra storico completo filtrato
-        mostra_df_filtrato_utente(df_gestore)
+        # Visualizza le richieste personali dal file personale
+        visualizza_richieste_personali(nav, df)
+
+
     
     elif selezione == "NUOVA RICHIESTA":
         richieste = [
@@ -87,7 +45,38 @@ def home_utente(df, df_soggetti, nav):
     elif selezione == "ANALISI":
         col1, col2 = st.columns(2)
         
-        # Filtra per gestore per le analisi
+        # Per i grafici usiamo lo storico completo filtrato per gestore
+        mappa_gestori = {
+            "ANTONELLA COCCO": "Antonella cocco",
+            "BEATRICE LAORENZA": "Beatrice Laorenza",
+            "Bacchetta ": "Carlo Bacchetta",
+            "DANIELA RIZZI": "Daniela Rizzi",
+            "FINGEST CREDIT": "Fingest Group",
+            "GIUSEPPE NIGRA": "Giuseppe Nigra",
+            "LAMYAA HAKIM": "Lamyaa Hakim",
+            "MATTEO CATARZI": "Matteo Catarzi",
+            "Magnifico Gelsomina ": "Gelsomina Magnifico",
+            "Mauro Gualtiero ": "Mauro Gualtiero",
+            "Michele  Oranger": "Michele Oranger",
+            "RITA NOTO": "Rita Maria Noto",
+            "Rita Maria Noto ": "Rita Maria Noto",
+            "Rita Noto": "Rita Maria Noto",
+            "Ritamaria Noto": "Rita Maria Noto",
+            "Mariagiulia Berardi": "Maria Giulia Berardi",
+            "Rita maria Noto": "Rita Maria Noto",
+            "Ruscelli lisa": "Ruscelli Lisa",
+            "Tiziana Alibrandi ": "Tiziana Alibrandi",
+            "VALENTINA BARTOLO": "Valentina Bartolo",
+            "VALERIA NAPOLEONE": "Valeria Napoleone",
+            "carmela lanciano": "Carmela Lanciano",
+            "silvia stefanelli": "Silvia Stefanelli",
+            " AGECREDIT": "AGECREDIT"
+        }
+        
+        if "GESTORE" in df.columns:
+            df["GESTORE"] = df["GESTORE"].replace(mappa_gestori)
+        
+        # Filtra per gestore corrente (VISUALIZZA STORICO COMPLETO per i grafici)
         username_norm = user["username"].replace(" ", "").lower()
         df_gestore = df[df["GESTORE"].astype(str).str.replace(" ", "").str.lower() == username_norm]
         

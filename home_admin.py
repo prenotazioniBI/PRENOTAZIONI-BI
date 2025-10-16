@@ -10,6 +10,7 @@ from io import BytesIO
 from ottimizzazione import gestisci_nuova_richiesta
 from admin_menu import menu_admin
 
+
 def home_admin(df, df_soggetti, nav, df_full):
     st.title("Area Admin")
     
@@ -150,7 +151,7 @@ def home_admin(df, df_soggetti, nav, df_full):
             with col3:
                 if num_da_eliminare > 0:
                     st.warning(f"⚠️ {num_da_eliminare} righe selezionate per eliminazione")
-                    
+
     elif selezione == "RICHIESTE IN ATTESA":
         st.subheader("Richieste in Attesa di Invio al Provider")
         
