@@ -26,11 +26,12 @@ def home_utente(df, df_soggetti, nav):
 "di vedere subito le richieste appena inviate. Clicca sull’icona di " \
 "aggiornamento e attendi qualche secondo per caricare i dati aggiornati.")
         
+
+        
+        
         # Visualizza le richieste personali dal file personale
         visualizza_richieste_personali(nav, df)
 
-
-    
     elif selezione == "NUOVA RICHIESTA":
         richieste = [
             "Info lavorativa Full (residenza + telefono + impiego)",

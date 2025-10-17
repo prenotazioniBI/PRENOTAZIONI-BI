@@ -39,6 +39,10 @@ def gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_funzione, nav, nom
             if user and user.get("ruolo") != "admin":
                 st.code("NOTA*\n"
                     "Per richiedere il rintraccio eredi è necessario rivolgersi tramite email al proprio Team Leader di riferimento.\n")
+                st.warning(" !!!ATTENZIONE!!! \n\n \
+                            ==========================   LOTTO ATHENA =============================\n\n" \
+                "                                             L'UFFICIO ICT STA PROCEDENDO CON IL CARICAMENTO DELLE BI\n\n" \
+                "                                                                (Vi avviseremo qui quando saranno caricate su Laweb)")
         else:
             if "richiesta" not in st.session_state:
                 banner_richiesta_utente(df_soggetti)
