@@ -657,7 +657,7 @@ def modifica_celle_excel(df, mostra_editor=True):
                     "Lotto La Cassa di Ravenna", "Lotto Libra", "Lotto Platinum", 
                     "Lotto Pop Npl 2018", "Lotto Pop Npl 2018 2", "Lotto Pop Npl 2018 3",
                     "Lotto Ragusa", "Lotto Ragusa 2", "Lotto Ragusa 3", "Lotto Ragusa 4", 
-                    "Lotto UnipolRec 1"], required=False)
+                    "Lotto UnipolRec 1", "Lotto Athena"], required=False)
             }
         )
         
