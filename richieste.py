@@ -50,7 +50,7 @@ def banner_richiesta_utente(df_soggetti):
                     "portafoglio": portafoglio_sel,
                     "ndg_debitore": soggetto["ndg"],
                     "nominativo_posizione": soggetto["intestazione"],
-                    "ndg_nominativo_ricercato": soggetto["ndg_Soggetto"],
+                    "ndg_nominativo_ricercato": soggetto["ndgSoggetto"],
                     "nominativo_ricerca": soggetto["nomeCompleto"]
                 }
                 st.success("Dati inseriti correttamente.")

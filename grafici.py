@@ -24,7 +24,9 @@ def aggrid_pivot(
         "Anagrafica+Telefono" : "Ricerca Anagrafica + Telefono",
         "ricerca anagrafica + telefono" : "Ricerca Anagrafica + Telefono",
         "Rintraccio Eredi Chiamati con verifica accettazione" : "Ricerca eredi",
-        "Ricerca eredi accettanti" : "Ricerca eredi"
+        "Ricerca eredi accettanti" : "Ricerca eredi",
+        "Info Lavorativa Full (Residenza + Telefono + Impiego)" : "Full(Residenza + Telefono + Impiego)",
+        "Rintraccio Conto Corrente" : "Info c/c"
     }
     # Mappatura per normalizzare i nomi dei gestori
     mappa_gestori = {
@@ -126,7 +128,7 @@ def aggrid_pivot_delta(
     anno_col = "ANNO",
     height=500
 ):
-    # ...existing code...
+
 
     # Mappatura per normalizzare i nomi dei servizi
     mappa_servizi = {
@@ -136,7 +138,9 @@ def aggrid_pivot_delta(
         "Ricerca Telefonica (verificato)": "Ricerca Telefonica",
         "Anagrafica+Telefono" : "Ricerca Anagrafica + Telefono",
         "Rintraccio Eredi Chiamati con verifica accettazione" : "Ricerca eredi",
-        "Ricerca eredi accettanti" : "Ricerca eredi"
+        "Ricerca eredi accettanti" : "Ricerca eredi",
+        "Info Lavorativa Full (Residenza + Telefono + Impiego)" : "Full(Residenza + Telefono + Impiego)",
+        "Rintraccio Conto Corrente" : "Info c/c"
     }
 
     df_clean = df.copy()
