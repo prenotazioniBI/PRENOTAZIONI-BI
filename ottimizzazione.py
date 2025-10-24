@@ -39,10 +39,10 @@ def gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_funzione, nav, nom
             if user and user.get("ruolo") != "admin":
                 st.code("NOTA*\n"
                     "Per richiedere il rintraccio eredi è necessario rivolgersi tramite email al proprio Team Leader di riferimento.\n")
-                st.warning(" !!!ATTENZIONE!!! \n\n \
-                            ==========================   LOTTO ATHENA =============================\n\n" \
-                "                                             L'UFFICIO ICT STA PROCEDENDO CON IL CARICAMENTO DELLE BI\n\n" \
-                "                                                                (Vi avviseremo qui quando saranno caricate su Laweb)")
+                st.error("\n\n Aggiornamento del 24 ottobre:\n\n" \
+                "                                      ========================   LOTTO ATHENA ===========================\n\n" \
+				"                  Abbiamo momentaneamente sospeso le richieste per questo lotto, a caricamento BI completato tornerà disponibile\n\n"
+            )                                               
         else:
             if "richiesta" not in st.session_state:
                 banner_richiesta_utente(df_soggetti)
