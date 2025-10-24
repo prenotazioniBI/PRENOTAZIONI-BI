@@ -35,6 +35,8 @@ def home_Teamleader(df, df_soggetti, nav):
 
     if selezione == "RICHIESTA MASSIVA":
             st.header("1- Scarica Template File Excel")
+            st.text("NDG DEBITORE --> NDG POSIZIONE\n" \
+            "NOMINATIVO POSIZIONE --> NOMINATIVO RICERCATO (il soggetto anagrafico insomma)")
             df_template = pd.DataFrame({
                 "PORTAFOGLIO": pd.Series(dtype="str"),
                 "GESTORE": pd.Series(dtype="str"),
@@ -96,7 +98,7 @@ def home_Teamleader(df, df_soggetti, nav):
                                                                         "Ricerca Anagrafica",
                                                                         "Ricerca Telefonica",
                                                                         "Ricerca Anagrafica + Telefono",
-                                                                        "Rintraccio Conto corrente"
+                                                                        "Rintraccio Conto corrente",
                                                                         "Ricerca eredi accettanti"])
                 if buttone:
                     if st.button("INVIA", key = "invio"):
