@@ -6,6 +6,36 @@ from filtro_df import mostra_df_filtrato_home_admin
 import io 
 import datetime
 
+def filtra_cf_massivi(df, df_massiva):
+    cf_duplicati = []
+    nuove_righe = []
+
+    for idx, riga in df_massiva.iterrows():
+        cf = str(riga["C.F."]).strip()
+        portafoglio = riga.get("PORTAFOGLIO", "")
+        gestore = riga.get("GESTORE", "")
+        ndg_debitore = riga.get("NDG DEBITORE", "")
+        nominativo_posizione = riga.get("NOMINATIVO POSIZIONE", "")
+
+        # Controllo duplicato su SERVIZIO RICHIESTO
+        mask = (
+            (df["C.F."].astype(str).str.strip() == cf) &
+            (df["SERVIZIO RICHIESTO"].astype(str).str.contains("Richiesta massiva", na=False))
+        )
+        if mask.any():
+            cf_duplicati.append({
+                "C.F.": cf,
+                "PORTAFOGLIO": portafoglio,
+                "NOMINATIVO POSIZIONE": nominativo_posizione,
+                "SERVIZIO RICHIESTO": "Richiesta massiva"
+            })
+        else:
+            nuove_righe.append(riga)
+
+    df_duplicati = pd.DataFrame(cf_duplicati)
+    df_nuove = pd.DataFrame(nuove_righe)
+    return df_duplicati, df_nuove
+
 
 def home_Teamleader(df, df_soggetti, nav):
     user = st.session_state.get("user")
@@ -23,8 +53,6 @@ def home_Teamleader(df, df_soggetti, nav):
         st.dataframe(df, height =1000)
     if selezione == "NUOVA RICHIESTA":
         richieste = [
-            "Ricerca eredi accettanti",
-            "Rintraccio eredi chiamati con verifica accettazione"
             "Info lavorativa Full (residenza + telefono + impiego)",
             "Ricerca Anagrafica",
             "Ricerca Telefonica",
@@ -57,36 +85,8 @@ def home_Teamleader(df, df_soggetti, nav):
             
             st.header("2- Carica File Excel per Richiesta Massiva")
             uploaded_file = st.file_uploader("", type=['xlsx'])
-        
-            def filtra_cf_massivi(df, df_massiva):
-                cf_duplicati = []
-                nuove_righe = []
-        
-                for idx, riga in df_massiva.iterrows():
-                    cf = str(riga["C.F."]).strip()
-                    portafoglio = riga.get("PORTAFOGLIO", "")
-                    gestore = riga.get("GESTORE", "")
-                    ndg_debitore = riga.get("NDG DEBITORE", "")
-                    nominativo_posizione = riga.get("NOMINATIVO POSIZIONE", "")
-        
-                    # Controllo duplicato su SERVIZIO RICHIESTO
-                    mask = (
-                        (df["C.F."].astype(str).str.strip() == cf) &
-                        (df["SERVIZIO RICHIESTO"].astype(str).str.contains("Richiesta massiva", na=False))
-                    )
-                    if mask.any():
-                        cf_duplicati.append({
-                            "C.F.": cf,
-                            "PORTAFOGLIO": portafoglio,
-                            "NOMINATIVO POSIZIONE": nominativo_posizione,
-                            "SERVIZIO RICHIESTO": "Richiesta massiva"
-                        })
-                    else:
-                        nuove_righe.append(riga)
-        
-                df_duplicati = pd.DataFrame(cf_duplicati)
-                df_nuove = pd.DataFrame(nuove_righe)
-                return df_duplicati, df_nuove
+            
+            filtra_cf_massivi(df, df_massiva)
         
             if uploaded_file is not None:
                 df_massiva = pd.read_excel(uploaded_file)
