@@ -90,7 +90,14 @@ def home_Teamleader(df, df_soggetti, nav):
                 df_massiva = pd.read_excel(uploaded_file)
                 st.success("File Caricato")
                 st.write(df_massiva.head())
-                buttone = st.selectbox("Seleziona Servizio:", options=["DD PERSONE FISICHE", "DD PERSONE GIURIDICHE"])
+                buttone = st.selectbox("Seleziona Servizio:", options=["DD PERSONE FISICHE", 
+                                                                       "DD PERSONE GIURIDICHE",
+                                                                       "Info lavorativa Full (residenza + telefono + impiego)",
+                                                                        "Ricerca Anagrafica",
+                                                                        "Ricerca Telefonica",
+                                                                        "Ricerca Anagrafica + Telefono",
+                                                                        "Rintraccio Conto corrente"
+                                                                        "Ricerca eredi accettanti"])
                 if buttone:
                     if st.button("INVIA", key = "invio"):
                         oggi = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
