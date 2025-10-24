@@ -23,7 +23,7 @@ def home_admin(df, df_soggetti, nav, df_full):
     
     if selezione == "NUOVA RICHIESTA":
         st.subheader("Nuova Richiesta - Admin")
-        st.info("Come admin puoi richiedere anche il servizio **Ricerca eredi accettanti**")
+        st.info("Come admin puoi richiedere anche il servizio **Ricerca eredi accettanti** e **Rintraccio eredi chiamati con verifica accettazione**")
         
         # Lista completa servizi inclusi eredi
         richieste_admin = [
