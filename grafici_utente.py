@@ -5,42 +5,34 @@ import pandas as pd
 from st_aggrid import AgGrid, GridOptionsBuilder
 
 
-
 class Grafici:
     def __init__(self, df):
         user = st.session_state.get("user")
         df = df.copy()
-        mappa_gestori = {
-        "ANTONELLA COCCO": "Antonella cocco",
-        "BEATRICE LAORENZA": "Beatrice Laorenza",
-        "Bacchetta ": "Carlo Bacchetta",
-        "DANIELA RIZZI": "Daniela Rizzi",
-        "FINGEST CREDIT": "Fingest Group",
-        "GIUSEPPE NIGRA": "Giuseppe Nigra",
-        "LAMYAA HAKIM": "Lamyaa Hakim",
-        "MATTEO CATARZI": "Matteo Catarzi",
-        "Magnifico Gelsomina ": "Gelsomina Magnifico",
-        "Mauro Gualtiero ": "Mauro Gualtiero",
-        "Michele  Oranger": "Michele Oranger",
-        "RITA NOTO": "Rita Maria Noto",
-        "Rita Maria Noto ": "Rita Maria Noto",
-        "Rita Noto": "Rita Maria Noto",
-        "Rita maria Noto": "Rita Maria Noto",
-        "Ruscelli lisa": "Ruscelli Lisa",
-        "Tiziana Alibrandi ": "Tiziana Alibrandi",
-        "VALENTINA BARTOLO": "Valentina Bartolo",
-        "VALERIA NAPOLEONE": "Valeria Napoleone",
-        "carmela lanciano": "Carmela Lanciano",
-        "silvia stefanelli": "Silvia Stefanelli",
-        " AGECREDIT": "AGECREDIT"
-    }
-        if "GESTORE" in df.columns:
-            df["GESTORE"] = df["GESTORE"].replace(mappa_gestori)
+        mappa_servizi = {
+        "Ricerca Telefonica": "Ricerca Telefonica",
+        "ricerca telefonica": "Ricerca Telefonica",
+        "Ricerca Telefonica ": "Ricerca Telefonica",
+        "Ricerca telefonica ": "Ricerca Telefonica",
+        "Ricerca Telefonica (verificato)": "Ricerca Telefonica",
+        "Anagrafica+Telefono" : "Ricerca Anagrafica + Telefono",
+        "ricerca anagrafica + telefono" : "Ricerca Anagrafica + Telefono",
+        "Rintraccio Eredi Chiamati con verifica accettazione" : "Ricerca eredi accettanti",
+        "Info Lavorativa Full (Residenza + Telefono + Impiego)" : "INFO LAVORATIVA FULL (RESIDENZA + TELEFONO + IMPIEGO)",
+        "Rintraccio Conto Corrente" : "Info c/c",
+        "full (residenza + telefono + impiego)" : "INFO LAVORATIVA FULL (RESIDENZA + TELEFONO + IMPIEGO)",
+        }
+
         if "COSTO" in df.columns:
             df["COSTO"] = pd.to_numeric(df["COSTO"], errors="coerce").fillna(0)
-        
-        if user and "username" in user:
+        if "NOME SERVIZIO" in df.columns:
+            df["NOME SERVIZIO"] = df["NOME SERVIZIO"].replace(mappa_servizi)
+            df["NOME SERVIZIO"] = df["NOME SERVIZIO"].astype(str).fillna("").str.strip().str.upper()
+            mappa_servizi_norm = {k.strip().upper(): v for k, v in mappa_servizi.items()}
+            df["NOME SERVIZIO"] = df["NOME SERVIZIO"].map(mappa_servizi_norm).fillna(df["NOME SERVIZIO"])
+            df["NOME SERVIZIO"] = df["NOME SERVIZIO"].str.upper()
 
+        if user and "username" in user:
             username_norm = user["username"].replace(" ", "").lower()
             df = df[df["GESTORE"].astype(str).str.replace(" ", "").str.lower() == username_norm]
         self.df = df

@@ -4,7 +4,7 @@ from ottimizzazione import gestisci_nuova_richiesta
 from user import visualizza_richieste_personali
 import pandas as pd
 from grafici_utente import Grafici
-
+from grafici import aggrid_media_spesa_per_gestore
 
 def home_utente(df, df_soggetti, nav):
     """
@@ -87,3 +87,4 @@ def home_utente(df, df_soggetti, nav):
             grafici.pivot_spesa_mensile_aggrid()
         with col2:
             grafici.torta_servizio_costo()
+        aggrid_media_spesa_per_gestore(df)

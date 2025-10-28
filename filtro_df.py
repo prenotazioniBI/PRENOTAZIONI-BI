@@ -2,6 +2,22 @@ import pandas as pd
 import streamlit as st
 import datetime
 import io
+import unicodedata
+import re
+
+def _normalize_text(s: str) -> str:
+    if s is None:
+        return ""
+    s = str(s)
+    s = unicodedata.normalize("NFKD", s).encode("ascii", "ignore").decode("ascii")
+    s = s.strip().lower()
+    s = re.sub(r'\s+', ' ', s)          # collapse multiple spaces
+    s = re.sub(r'[^a-z0-9 ]', ' ', s)   # remove punctuation, keep spaces
+    s = re.sub(r'\s+', ' ', s).strip()
+    return s
+
+
+
 def filtro_cf(df, key_suffix=""):
     cf_input = st.text_input("Filtra per Codice Fiscale o p.iva", key=f"cf_{key_suffix}")
     if cf_input:
@@ -101,6 +117,36 @@ def filtro_portafoglio(df, key_suffix=""):
     if portafoglio_input:
         df = df[df["PORTAFOGLIO"].astype(str).str.contains(portafoglio_input, case=False, na=False)]
     return df
+
+
+# ...existing code...
+def filtro_servizio(df, key_suffix=""):
+    options = [
+        "Tutte",
+        "INFO LAVORATIVA FULL(RESIDENZA + TELEFONO + IMPIEGO)",
+        "RICERCA ANAGRAFICA",
+        "RICERCA TELEFONICA",
+        "RICERCA ANAGRAFICA + TELEFONO",
+        "RINTRACCIO CONTO CORRENTE",
+        "RINTRACCIO EREDI CHIAMATI CON VERIFICA ACCETTAZIONE",
+        "DD PERSONE GIURIDICHE",
+        "RICERCA EREDI ACCETTANTI",
+        "VISURA CAMERALE",
+        "DD PERSONE FISICHE"
+    ]
+    servizio_input = st.selectbox("Filtra per richieste", options=options, key=f"richieste{key_suffix}")
+    if not servizio_input or str(servizio_input).strip().lower() in ("tutte", "tutti"):
+        return df
+
+    sel_norm = _normalize_text(servizio_input)
+    col = "NOME SERVIZIO"
+    if col in df.columns:
+        df["_svc_norm"] = df[col].astype(str).apply(_normalize_text)
+        mask = df["_svc_norm"].str.contains(re.escape(sel_norm), na=False)
+        df = df[mask].copy()
+        df = df.drop(columns=["_svc_norm"], errors="ignore")
+    return df
+
 
 def mostra_df_filtrato_utente(df):
     col1, col2 = st.columns(2)
@@ -211,6 +257,8 @@ def mostra_df_filtrato_home_admin(df):
         df = filtro_gestore(df, key_suffix="home_admin_gestore")
     with col3:
         df = filtro_portafoglio(df, key_suffix="home_admin_portafoglio")
+    with col4:
+        df = filtro_servizio(df, key_suffix="home_admin_servizio")
     col1, col2 = st.columns(2)    
     with col1:
         df = filtro_data(df, key_suffix="home_admin_data")

@@ -148,12 +148,6 @@ def home_analista(df, nav, df_full):
                 st.plotly_chart(fig, use_container_width=True)
 
 
-
-
-
-
-
-
             df_line = df[df["ANNO"].isin([2024, 2025])].copy()
             df_line["MESE"] = pd.to_numeric(df_line["MESE"], errors="coerce")
 

@@ -253,3 +253,61 @@ def aggrid_pivot_delta(
         theme="streamlit"
     )
     return grid_response
+
+
+def aggrid_media_spesa_per_gestore(df, group_col="GESTORE", value_col="COSTO", height=500):
+    """
+    Calcola e mostra la media di spesa per gestore (solo per l'anno 2025).
+    Mostra: GESTORE, MEDIA_SPESA, TOTALE_SPESA, NUM_RICHIESTE.
+    """
+    dfc = df.copy()
+
+
+    if "DATA RICHIESTA" in dfc.columns:
+        dfc["DATA RICHIESTA"] = pd.to_datetime(dfc["DATA RICHIESTA"], errors="coerce", dayfirst=True)
+        dfc = dfc[dfc["DATA RICHIESTA"].dt.year == 2025]
+
+    if dfc.empty:
+        st.info("Nessun dato per il 2025")
+        return None
+
+
+    if group_col not in dfc.columns:
+        st.error(f"Colonna {group_col} mancante nel DataFrame")
+        return None
+
+    if value_col not in dfc.columns:
+        st.error(f"Colonna {value_col} mancante nel DataFrame")
+        return None
+
+    dfc[group_col] = dfc[group_col].astype(str).str.strip()
+    dfc[value_col] = pd.to_numeric(dfc[value_col], errors="coerce").fillna(0.0)
+
+    agg = dfc.groupby(group_col, as_index=False).agg(
+        TOTALE_SPESA=(value_col, "sum"),
+        NUM_RICHIESTE=(value_col, "count"),
+        MEDIA_SPESA=(value_col, "mean")
+    )
+    agg["MEDIA_SPESA"] = agg["MEDIA_SPESA"].round(2)
+    agg["TOTALE_SPESA"] = agg["TOTALE_SPESA"].round(2)
+    agg = agg.sort_values("MEDIA_SPESA", ascending=False).reset_index(drop=True)
+
+    agg["NUM_RICHIESTE"] = agg["NUM_RICHIESTE"].astype(int)
+    gb = GridOptionsBuilder.from_dataframe(agg)
+    gb.configure_default_column(editable=False, sortable=True, resizable=True, filter=True)
+    gb.configure_column(group_col, headerName=group_col, width=220, pinned='left')
+    gb.configure_column("MEDIA_SPESA", headerName="Media €", valueFormatter="x.toFixed(2)", width=120)
+    gb.configure_column("TOTALE_SPESA", headerName="Totale €", valueFormatter="x.toFixed(2)", width=120)
+    gb.configure_column("NUM_RICHIESTE", headerName="N. richieste", width=110)
+    gridOptions = gb.build()
+
+    st.markdown("### Media spesa per gestore (2025)")
+    AgGrid(
+        agg,
+        gridOptions=gridOptions,
+        enable_enterprise_modules=True,
+        fit_columns_on_grid_load=True,
+        height=height,
+        theme="streamlit"
+    )
+    return agg

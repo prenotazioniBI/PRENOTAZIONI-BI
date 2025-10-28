@@ -97,8 +97,6 @@ def home_admin(df, df_soggetti, nav, df_full):
                         if num_da_eliminare > 0:
                             ids_da_eliminare = righe_da_eliminare['id'].tolist()
                             df_full_updated = df_full_updated[~df_full_updated['id'].isin(ids_da_eliminare)]
-
-                            # --- Rimuovi anche dai file parquet personali dei gestori ---
                             try:
                                 site_id = nav.get_site_id()
                                 drive_id, _ = nav.get_drive_id(site_id)
@@ -107,7 +105,6 @@ def home_admin(df, df_soggetti, nav, df_full):
                                 if gestore_col is None:
                                     st.warning("Colonna gestore/utente non trovata nelle righe da eliminare: impossibile aggiornare file personali.")
                                 else:
-        # ...existing code...
                                             # lista gestori coinvolti
                                             gestori = righe_da_eliminare[gestore_col].astype(str).str.strip().unique().tolist()
         
