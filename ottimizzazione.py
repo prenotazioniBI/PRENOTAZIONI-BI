@@ -39,9 +39,9 @@ def gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_funzione, nav, nom
             if user and user.get("ruolo") != "admin":
                 st.code("NOTA*\n"
                     "Per richiedere un Rintraccio Eredi o una Visura Camerale è necessario rivolgersi tramite email al proprio Team Leader di riferimento.\n")
-                st.error("\n\n Aggiornamento del 24 ottobre:\n\n" \
+                st.success("\n\n Aggiornamento del 29 ottobre:\n\n" \
                 "                                      ========================   LOTTO ATHENA ===========================\n\n" \
-				"                  Abbiamo momentaneamente sospeso le richieste per questo lotto, a caricamento BI completato tornerà disponibile\n\n"
+				"                                                le BI sono state caricate e le posizioni per questo lotto sono nuovamente disponibili.\n\n"
             )                                               
         else:
             if "richiesta" not in st.session_state:

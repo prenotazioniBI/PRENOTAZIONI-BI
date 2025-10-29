@@ -9,7 +9,6 @@ def banner_richiesta_utente(df_soggetti):
     col1, _ = st.columns(2)
     avanti = col1.button("Avanti")
     df_soggetti = df_soggetti.copy()
-    df_soggetti = df_soggetti[df_soggetti["portafoglio"] != "Lotto Athena"]
     if avanti:
         if not cf:
             st.warning("CODICE FISCALE o P.IVA OBBLIGATORIO")

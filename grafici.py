@@ -254,14 +254,13 @@ def aggrid_pivot_delta(
     )
     return grid_response
 
-
-def aggrid_media_spesa_per_gestore(df, group_col="GESTORE", value_col="COSTO", height=500):
+def aggrid_spesa_per_portafoglio(df, group_col="PORTAFOGLIO", value_col="COSTO", height=500):
     """
-    Calcola e mostra la media di spesa per gestore (solo per l'anno 2025).
-    Mostra: GESTORE, MEDIA_SPESA, TOTALE_SPESA, NUM_RICHIESTE.
+    Mostra Totale spesa e numero richieste per portafoglio (solo anno 2025).
+    Include il dettaglio per GESTORE (raggruppamento PORTAFOGLIO -> GESTORE).
+    La colonna 'TOTALE_PORTAFOGLIO' mostra subito il totale per quel portafoglio e rimane visibile.
     """
     dfc = df.copy()
-
 
     if "DATA RICHIESTA" in dfc.columns:
         dfc["DATA RICHIESTA"] = pd.to_datetime(dfc["DATA RICHIESTA"], errors="coerce", dayfirst=True)
@@ -271,6 +270,9 @@ def aggrid_media_spesa_per_gestore(df, group_col="GESTORE", value_col="COSTO", h
         st.info("Nessun dato per il 2025")
         return None
 
+    # assicurati che la colonna GESTORE esista
+    if "GESTORE" not in dfc.columns:
+        dfc["GESTORE"] = "Unknown"
 
     if group_col not in dfc.columns:
         st.error(f"Colonna {group_col} mancante nel DataFrame")
@@ -281,27 +283,52 @@ def aggrid_media_spesa_per_gestore(df, group_col="GESTORE", value_col="COSTO", h
         return None
 
     dfc[group_col] = dfc[group_col].astype(str).str.strip()
+    dfc["GESTORE"] = dfc["GESTORE"].astype(str).str.strip()
     dfc[value_col] = pd.to_numeric(dfc[value_col], errors="coerce").fillna(0.0)
 
-    agg = dfc.groupby(group_col, as_index=False).agg(
+    # raggruppa per portafoglio e gestore (dettaglio)
+    agg = dfc.groupby([group_col, "GESTORE"], as_index=False).agg(
         TOTALE_SPESA=(value_col, "sum"),
-        NUM_RICHIESTE=(value_col, "count"),
-        MEDIA_SPESA=(value_col, "mean")
+        NUM_RICHIESTE=(value_col, "count")
     )
-    agg["MEDIA_SPESA"] = agg["MEDIA_SPESA"].round(2)
     agg["TOTALE_SPESA"] = agg["TOTALE_SPESA"].round(2)
-    agg = agg.sort_values("MEDIA_SPESA", ascending=False).reset_index(drop=True)
+    agg = agg.sort_values([group_col, "TOTALE_SPESA"], ascending=[True, False]).reset_index(drop=True)
+
+    # Calcola Totale per portafoglio e mappa su ogni riga (colonna fissa)
+    tot_per_port = agg.groupby(group_col, as_index=False).agg(
+        TOTALE_PORTAFOGLIO=("TOTALE_SPESA", "sum")
+    )
+    tot_per_port["TOTALE_PORTAFOGLIO"] = tot_per_port["TOTALE_PORTAFOGLIO"].round(2)
+    agg = agg.merge(tot_per_port, on=group_col, how="left")
+
+    # (opzionale) aggiungi riga totale generale in fondo
+    totale = agg["TOTALE_SPESA"].sum()
+    num_richieste = agg["NUM_RICHIESTE"].sum()
+    totale_row = {
+        group_col: "TOTALE",
+        "GESTORE": "",
+        "TOTALE_SPESA": totale,
+        "NUM_RICHIESTE": int(num_richieste),
+        "TOTALE_PORTAFOGLIO": ""
+    }
+    agg = pd.concat([agg, pd.DataFrame([totale_row])], ignore_index=True)
 
     agg["NUM_RICHIESTE"] = agg["NUM_RICHIESTE"].astype(int)
+
     gb = GridOptionsBuilder.from_dataframe(agg)
-    gb.configure_default_column(editable=False, sortable=True, resizable=True, filter=True)
-    gb.configure_column(group_col, headerName=group_col, width=220, pinned='left')
-    gb.configure_column("MEDIA_SPESA", headerName="Media €", valueFormatter="x.toFixed(2)", width=120)
-    gb.configure_column("TOTALE_SPESA", headerName="Totale €", valueFormatter="x.toFixed(2)", width=120)
-    gb.configure_column("NUM_RICHIESTE", headerName="N. richieste", width=110)
+    gb.configure_default_column(editable=False, groupable=True, sortable=True, resizable=True, filter=True)
+    # mostra la colonna PORTAFOGLIO (non nascosta) e mantienila come group key
+    gb.configure_column(group_col, headerName=group_col, rowGroup=True, hide=False, width=260, pinned='left')
+    gb.configure_column("GESTORE", headerName="Gestore", width=260)
+    gb.configure_column("TOTALE_SPESA", headerName="Totale €", valueFormatter="x.toFixed(2)", width=140, type="numericColumn")
+    gb.configure_column("NUM_RICHIESTE", headerName="N. richieste", width=120)
+    # colonna fissa visibile che mostra sempre il totale per portafoglio
+    gb.configure_column("TOTALE_PORTAFOGLIO", headerName="Totale Portafoglio €", valueFormatter="x.toFixed(2)", width=160, pinned='left')
+    gb.configure_auto_height(autoHeight=False)
+    gb.configure_side_bar(filters_panel=True, columns_panel=True)
     gridOptions = gb.build()
 
-    st.markdown("### Media spesa per gestore (2025)")
+    st.markdown("### Spesa per portafoglio e dettaglio gestore (2025)")
     AgGrid(
         agg,
         gridOptions=gridOptions,
