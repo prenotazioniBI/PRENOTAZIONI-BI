@@ -546,12 +546,12 @@ def visualizza_richieste_per_gestore(df, username):
     richieste_utente[colonne_da_mostrare] = richieste_utente[colonne_da_mostrare].fillna("   -    ")
     return richieste_utente[colonne_presenti]
 
-
 def visualizza_richieste_per_stato_invio_provider(df):
     df = df[df["INVIATE AL PROVIDER"].isnull()]
-    colonne_principali = [
+
+    colonne_ordine_fisso = [
         "PORTAFOGLIO",
-        "GESTORE",
+        "GESTORE", 
         "NDG DEBITORE",
         "NOMINATIVO POSIZIONE",
         "NDG NOMINATIVO RICERCATO",
@@ -561,12 +561,15 @@ def visualizza_richieste_per_stato_invio_provider(df):
         "DATA RICHIESTA",
         "INVIATE AL PROVIDER"
     ]
+    
 
-    df = df[colonne_principali] 
+    colonne_presenti = [col for col in colonne_ordine_fisso if col in df.columns]
+    
+    df = df[colonne_presenti].copy()
+    
     df["DATA RICHIESTA"] = pd.to_datetime(df["DATA RICHIESTA"], errors="coerce", dayfirst=False)
     ordino_per_stato = df.sort_values("DATA RICHIESTA", ascending=False)
     return ordino_per_stato
-
 
 def visualizza_richieste_Evase(df):
     df = df.copy()
