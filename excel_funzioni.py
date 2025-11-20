@@ -550,15 +550,15 @@ def visualizza_richieste_per_gestore(df, username):
 def visualizza_richieste_per_stato_invio_provider(df):
     df = df[df["INVIATE AL PROVIDER"].isnull()]
     colonne_principali = [
-        "GESTORE",
-        "C.F.",
-        "DATA RICHIESTA",
-        "NOME SERVIZIO",
         "PORTAFOGLIO",
+        "GESTORE",
         "NDG DEBITORE",
         "NOMINATIVO POSIZIONE",
         "NDG NOMINATIVO RICERCATO",
         "NOMINATIVO RICERCA",
+        "C.F.",
+        "NOME SERVIZIO",
+        "DATA RICHIESTA",
         "INVIATE AL PROVIDER"
     ]
 

@@ -200,7 +200,7 @@ def home_admin(df, df_soggetti, nav, df_full):
                                                         st.warning(f"Errore caricamento file personale: {personal_filename}")
                                                 except Exception as _e:
                                                     st.warning(f"Errore aggiornando file personale {personal_filename}: {_e}")
-        # ...existing code...
+
                             except Exception as _e:
                                             st.write("che ne so")
                         for idx, row in df_to_save.iterrows():

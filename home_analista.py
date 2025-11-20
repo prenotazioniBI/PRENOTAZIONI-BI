@@ -104,14 +104,23 @@ def home_analista(df, nav, df_full):
             with col2: 
                 # Mappatura per normalizzare i nomi dei servizi
                 mappa_servizi = {
-                    "Ricerca Telefonica": "Ricerca Telefonica",
-                    "Ricerca Telefonica ": "Ricerca Telefonica",
-                    "Ricerca telefonica ": "Ricerca Telefonica",
-                    "Ricerca Telefonica (verificato)": "Ricerca Telefonica",
-                    "Anagrafica+Telefono" : "Ricerca Anagrafica + Telefono",
-                    "Rintraccio Eredi Chiamati con verifica accettazione" : "Ricerca eredi",
-                    "Ricerca eredi accettanti" : "Ricerca eredi"
-                }
+         "Ricerca Telefonica": "RICERCA TELEFONICA",
+        "Ricerca Telefonica ": "RICERCA TELEFONICA",
+        "Ricerca telefonica ": "RICERCA TELEFONICA",
+         "Ricerca telefonica ": "RICERCA TELEFONICA",
+        "Ricerca Telefonica (verificato)": "RICERCA TELEFONICA",
+        "RICERCA TELEFONICA (VERIFICATO)": "RICERCA TELEFONICA",
+        "Anagrafica+Telefono" : "Ricerca Anagrafica + Telefono",
+        "Rintraccio Eredi Chiamati con verifica accettazione" : "Ricerca eredi",
+        "Ricerca eredi accettanti" : "Ricerca eredi",
+        "Info Lavorativa Full (Residenza + Telefono + Impiego)" : "Info Lavorativa Full (Residenza + Telefono + Impiego)",
+        "Rintraccio Conto Corrente" : "Info c/c",
+        "RINTRACCIO CONTO CORRENTE" : "INFO C/C",
+        "Full(Residenza + Telefono + Impiego)" : "Info Lavorativa Full (Residenza + Telefono + Impiego)",
+        "INFO LAVORATIVA FULL (RESIDENZA + TELEFONO + IMPIEGO)" :  "INFO LAVORATIVA FULL (RESIDENZA + TELEFONO + IMPIEGO)" ,
+        "FULL (RESIDENZA + TELEFONO + IMPIEGO)" : "INFO LAVORATIVA FULL (RESIDENZA + TELEFONO + IMPIEGO)",
+        "ANAGRAFICA+TELEFONO" : "RICERCA ANAGRAFICA + TELEFONO"
+    }
                 # Filtra solo i dati del 2025
                 df_2025 = df[df["ANNO"] == 2025].copy()
                 

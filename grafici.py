@@ -26,7 +26,8 @@ def aggrid_pivot(
         "Rintraccio Eredi Chiamati con verifica accettazione" : "Ricerca eredi",
         "Ricerca eredi accettanti" : "Ricerca eredi",
         "Info Lavorativa Full (Residenza + Telefono + Impiego)" : "Full(Residenza + Telefono + Impiego)",
-        "Rintraccio Conto Corrente" : "Info c/c"
+        "Rintraccio Conto Corrente" : "Info c/c",
+        "RINTRACCIO CONTO CORRENTE " : " INFO C/C"
     }
     # Mappatura per normalizzare i nomi dei gestori
     mappa_gestori = {
@@ -176,7 +177,6 @@ def aggrid_pivot_delta(
         .reset_index()
     )
 
-    # Assicura che le colonne dei mesi selezionati ci siano sempre
     for mese in mesi_num:
         if mese not in df_pivot.columns:
             df_pivot[mese] = 0.0
@@ -255,11 +255,7 @@ def aggrid_pivot_delta(
     return grid_response
 
 def aggrid_spesa_per_portafoglio(df, group_col="PORTAFOGLIO", value_col="COSTO", height=500):
-    """
-    Mostra Totale spesa e numero richieste per portafoglio (solo anno 2025).
-    Include il dettaglio per GESTORE (raggruppamento PORTAFOGLIO -> GESTORE).
-    La colonna 'TOTALE_PORTAFOGLIO' mostra subito il totale per quel portafoglio e rimane visibile.
-    """
+
     dfc = df.copy()
 
     if "DATA RICHIESTA" in dfc.columns:
@@ -270,7 +266,6 @@ def aggrid_spesa_per_portafoglio(df, group_col="PORTAFOGLIO", value_col="COSTO",
         st.info("Nessun dato per il 2025")
         return None
 
-    # assicurati che la colonna GESTORE esista
     if "GESTORE" not in dfc.columns:
         dfc["GESTORE"] = "Unknown"
 
@@ -286,22 +281,18 @@ def aggrid_spesa_per_portafoglio(df, group_col="PORTAFOGLIO", value_col="COSTO",
     dfc["GESTORE"] = dfc["GESTORE"].astype(str).str.strip()
     dfc[value_col] = pd.to_numeric(dfc[value_col], errors="coerce").fillna(0.0)
 
-    # raggruppa per portafoglio e gestore (dettaglio)
     agg = dfc.groupby([group_col, "GESTORE"], as_index=False).agg(
         TOTALE_SPESA=(value_col, "sum"),
         NUM_RICHIESTE=(value_col, "count")
     )
     agg["TOTALE_SPESA"] = agg["TOTALE_SPESA"].round(2)
     agg = agg.sort_values([group_col, "TOTALE_SPESA"], ascending=[True, False]).reset_index(drop=True)
-
-    # Calcola Totale per portafoglio e mappa su ogni riga (colonna fissa)
     tot_per_port = agg.groupby(group_col, as_index=False).agg(
         TOTALE_PORTAFOGLIO=("TOTALE_SPESA", "sum")
     )
     tot_per_port["TOTALE_PORTAFOGLIO"] = tot_per_port["TOTALE_PORTAFOGLIO"].round(2)
     agg = agg.merge(tot_per_port, on=group_col, how="left")
 
-    # (opzionale) aggiungi riga totale generale in fondo
     totale = agg["TOTALE_SPESA"].sum()
     num_richieste = agg["NUM_RICHIESTE"].sum()
     totale_row = {
