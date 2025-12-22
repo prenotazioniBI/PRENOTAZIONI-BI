@@ -1,8 +1,7 @@
 import streamlit as st
 from firebase import firebase_register, firebase_login, firebase_forgot_password
 import pandas as pd
-import os
-from sharepoint_utils import SharePointNavigator
+import io
 
 SPECIAL_USERS = {
     "filippo.strocchi@fbs.it": ("analista", "Filippo Strocchi"),
@@ -17,6 +16,8 @@ SPECIAL_USERS = {
 def create_user_profile_on_sharepoint(email, username):
     """Crea il profilo utente su SharePoint creando i file Parquet"""
     try:
+        from sharepoint_utils import SharePointNavigator
+        
         # Configura SharePoint
         SITE_URL = st.secrets["SITE_URL"]
         TENANT_ID = st.secrets["TENANT_ID"]
@@ -25,24 +26,6 @@ def create_user_profile_on_sharepoint(email, username):
         LIBRARY_NAME = st.secrets["LIBRARY_NAME"]
         FOLDER_PATH = st.secrets["FOLDER_PATH"]
         DT_FOLDER_PATH = st.secrets["DT_FOLDER_PATH"]
-        
-        # Crea navigator per BI
-        nav = SharePointNavigator(
-            SITE_URL, TENANT_ID, CLIENT_ID, CLIENT_SECRET, 
-            LIBRARY_NAME, FOLDER_PATH
-        )
-        nav.login()
-        site_id = nav.get_site_id()
-        drive_id, _ = nav.get_drive_id(site_id)
-        
-        # Crea navigator per DT
-        nav_dt = SharePointNavigator(
-            SITE_URL, TENANT_ID, CLIENT_ID, CLIENT_SECRET,
-            LIBRARY_NAME, DT_FOLDER_PATH
-        )
-        nav_dt.login()
-        site_id_dt = nav_dt.get_site_id()
-        drive_id_dt, _ = nav_dt.get_drive_id(site_id_dt)
         
         # Nome file basato su email
         safe_email = email.replace('@', '_').replace('.', '_')
@@ -85,30 +68,53 @@ def create_user_profile_on_sharepoint(email, username):
             'id': pd.Series(dtype='int')
         })
         
-        # Salva su SharePoint come file Parquet
-        import io
+        # === UPLOAD FILE BI ===
+        nav_bi = SharePointNavigator(
+            SITE_URL, TENANT_ID, CLIENT_ID, CLIENT_SECRET, 
+            LIBRARY_NAME, FOLDER_PATH
+        )
+        nav_bi.login()
+        site_id_bi = nav_bi.get_site_id()
+        drive_id_bi, _ = nav_bi.get_drive_id(site_id_bi)
         
-        # File BI
+        # Converti in bytes
         buffer_bi = io.BytesIO()
         df_bi.to_parquet(buffer_bi, index=False)
         buffer_bi.seek(0)
-        nav.upload_file(
-            site_id, drive_id, 
-            f"{FOLDER_PATH}/{safe_email}_bi.parquet", 
-            buffer_bi.getvalue()
+        
+        # Upload file BI
+        file_path_bi = f"{FOLDER_PATH}/{safe_email}_prenotazioni.parquet"
+        success_bi = nav_bi.upload_file_direct(
+            site_id_bi, drive_id_bi, file_path_bi, buffer_bi.getvalue()
         )
         
-        # File DT
+        if not success_bi:
+            return False, "Errore upload file BI"
+        
+        # === UPLOAD FILE DT ===
+        nav_dt = SharePointNavigator(
+            SITE_URL, TENANT_ID, CLIENT_ID, CLIENT_SECRET,
+            LIBRARY_NAME, DT_FOLDER_PATH
+        )
+        nav_dt.login()
+        site_id_dt = nav_dt.get_site_id()
+        drive_id_dt, _ = nav_dt.get_drive_id(site_id_dt)
+        
+        # Converti in bytes
         buffer_dt = io.BytesIO()
         df_dt.to_parquet(buffer_dt, index=False)
         buffer_dt.seek(0)
-        nav_dt.upload_file(
-            site_id_dt, drive_id_dt,
-            f"{DT_FOLDER_PATH}/{safe_email}_dt.parquet",
-            buffer_dt.getvalue()
+        
+        # Upload file DT
+        file_path_dt = f"{DT_FOLDER_PATH}/{safe_email}_dt.parquet"
+        success_dt = nav_dt.upload_file_direct(
+            site_id_dt, drive_id_dt, file_path_dt, buffer_dt.getvalue()
         )
         
-        return True, "Profilo utente creato con successo"
+        if not success_dt:
+            return False, "Errore upload file DT"
+        
+        return True, f"Profilo creato: {safe_email}_prenotazioni.parquet e {safe_email}_dt.parquet"
         
     except Exception as e:
         return False, f"Errore creazione profilo: {str(e)}"
@@ -133,35 +139,50 @@ def authentication():
                 return None, None, None  
 
             email_norm = email.strip().lower()
+            
+            # Validazione email
             if not (email_norm.endswith("@fbs.it") or email_norm.endswith("@fbsnext.it")):
-                st.error("Email non valida")
-                return None, None, None  
+                st.error("❌ Email non valida. Usa un'email aziendale @fbs.it o @fbsnext.it")
+                st.stop()
                 
             if menu == "Crea account":
+                # Validazione password
+                if not password or len(password) < 6:
+                    st.error("❌ La password deve essere di almeno 6 caratteri")
+                    st.stop()
+                
                 username_raw = email_norm.split("@")[0]
                 if username_raw.endswith(".ext"):
                     username_raw = username_raw[:-4]
                 username = username_raw.replace(".", " ").title()
                 
-                # Registra su Firebase
-                ok, msg = firebase_register(email_norm, password)
-                if ok:
-                    st.success(f"✅ Registrato come: {username}")
+                # Mostra progress
+                with st.status("Creazione account in corso...", expanded=True) as status:
+                    st.write("🔐 Registrazione su Firebase...")
+                    
+                    # Registra su Firebase
+                    ok, msg = firebase_register(email_norm, password)
+                    
+                    if not ok:
+                        st.error(f"❌ Errore registrazione Firebase: {msg}")
+                        status.update(label="❌ Registrazione fallita", state="error")
+                        st.stop()
+                    
+                    st.write("✅ Firebase OK")
+                    st.write("📁 Creazione profilo su SharePoint...")
                     
                     # Crea profilo su SharePoint
-                    with st.spinner("Creazione profilo utente su SharePoint..."):
-                        profile_ok, profile_msg = create_user_profile_on_sharepoint(email_norm, username)
-                        
-                        if profile_ok:
-                            st.success(f"✅ {profile_msg}")
-                            st.info("🎉 Account creato! Ora puoi effettuare il login.")
-                        else:
-                            st.warning(f"⚠️ Account Firebase creato ma errore profilo SharePoint: {profile_msg}")
-                else:
-                    st.error(f"❌ Errore registrazione: {msg}")
+                    profile_ok, profile_msg = create_user_profile_on_sharepoint(email_norm, username)
+                    
+                    if profile_ok:
+                        st.write(f"✅ SharePoint OK")
+                        status.update(label="✅ Account creato con successo!", state="complete")
+                        st.success(f"🎉 Benvenuto {username}! Ora puoi effettuare il login.")
+                        st.balloons()
+                    else:
+                        st.warning(f"⚠️ Account Firebase creato ma errore SharePoint: {profile_msg}")
+                        status.update(label="⚠️ Registrazione parziale", state="error")
                 
-                # Dopo la registrazione, non fare il login automatico
-                # L'utente deve fare il login manualmente
                 st.stop()
 
             elif menu == "Login":
@@ -178,8 +199,8 @@ def authentication():
                     
                     return ruolo, username, email_norm
                 else:
-                    st.error(user_info)
-                return None, None, None  
+                    st.error(f"❌ {user_info}")
+                    st.stop()
                 
             elif menu == "Password dimenticata":
                 ok, msg = firebase_forgot_password(email_norm)
@@ -193,4 +214,4 @@ def authentication():
                     )
                 else:
                     st.error(msg)
-                return None, None, None
+                st.stop()
