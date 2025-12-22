@@ -162,7 +162,6 @@ def banner_richiesta_utente_dt(dt_soggetti):
                     st.warning("Seleziona almeno un rapporto")
                     st.stop()
                 
-                # Aggregazione rapporti selezionati
                 rapporti_selezionati = [records_unici[i]['rapporto'] for i in selected_indices]
                 gbv_totale = sum(records_unici[i]['gbv'] for i in selected_indices)
                 soggetto_base_data = records_unici[selected_indices[0]]['row_data']
@@ -181,7 +180,6 @@ def banner_richiesta_utente_dt(dt_soggetti):
             gbv_totale = float(soggetto_base_data.get('gbvAttuale', 0))
             st.info("Record unico trovato")
         
-        # FASE 4: Modifica GBV e conferma finale
         st.write("---")
         gbv_editabile = st.number_input(
             "GBV Attuale (editabile):",
