@@ -2,6 +2,7 @@ import streamlit as st
 from firebase import firebase_register, firebase_login, firebase_forgot_password
 import pandas as pd
 import os
+from sharepoint_utils import SharePointNavigator
 
 SPECIAL_USERS = {
     "filippo.strocchi@fbs.it": ("analista", "Filippo Strocchi"),
@@ -13,59 +14,104 @@ SPECIAL_USERS = {
     "ict@fbs.it": ("team leader", "ict")
 }
 
-def create_user_files(email, username):
-    """Crea i file Parquet per l'utente se non esistono"""
-    
-    # Definisci le cartelle
-    BI_FOLDER = "data/bi"
-    DT_FOLDER = "data/dt"  # diffide, telegrammi, welcome letter
-    
-    # Crea le cartelle se non esistono
-    os.makedirs(BI_FOLDER, exist_ok=True)
-    os.makedirs(DT_FOLDER, exist_ok=True)
-    
-    # Percorsi file
-    bi_file = f"{BI_FOLDER}/{email.replace('@', '_').replace('.', '_')}.parquet"
-    dt_file = f"{DT_FOLDER}/{email.replace('@', '_').replace('.', '_')}.parquet"
-    
-    # Schema per file BI
-    if not os.path.exists(bi_file):
+def create_user_profile_on_sharepoint(email, username):
+    """Crea il profilo utente su SharePoint creando i file Parquet"""
+    try:
+        # Configura SharePoint
+        SITE_URL = st.secrets["SITE_URL"]
+        TENANT_ID = st.secrets["TENANT_ID"]
+        CLIENT_ID = st.secrets["CLIENT_ID"]
+        CLIENT_SECRET = st.secrets["CLIENT_SECRET"]
+        LIBRARY_NAME = st.secrets["LIBRARY_NAME"]
+        FOLDER_PATH = st.secrets["FOLDER_PATH"]
+        DT_FOLDER_PATH = st.secrets["DT_FOLDER_PATH"]
+        
+        # Crea navigator per BI
+        nav = SharePointNavigator(
+            SITE_URL, TENANT_ID, CLIENT_ID, CLIENT_SECRET, 
+            LIBRARY_NAME, FOLDER_PATH
+        )
+        nav.login()
+        site_id = nav.get_site_id()
+        drive_id, _ = nav.get_drive_id(site_id)
+        
+        # Crea navigator per DT
+        nav_dt = SharePointNavigator(
+            SITE_URL, TENANT_ID, CLIENT_ID, CLIENT_SECRET,
+            LIBRARY_NAME, DT_FOLDER_PATH
+        )
+        nav_dt.login()
+        site_id_dt = nav_dt.get_site_id()
+        drive_id_dt, _ = nav_dt.get_drive_id(site_id_dt)
+        
+        # Nome file basato su email
+        safe_email = email.replace('@', '_').replace('.', '_')
+        
+        # Crea DataFrame vuoto per BI
         df_bi = pd.DataFrame({
-            'ndg': pd.Series(dtype='str'),
-            'nome_debitore': pd.Series(dtype='str'),
-            'cognome_debitore': pd.Series(dtype='str'),
-            'indirizzo': pd.Series(dtype='str'),
-            'cap': pd.Series(dtype='str'),
-            'citta': pd.Series(dtype='str'),
-            'provincia': pd.Series(dtype='str'),
-            'importo_debito': pd.Series(dtype='float'),
-            'data_richiesta': pd.Series(dtype='str'),
-            'stato': pd.Series(dtype='str'),
-            'username': pd.Series(dtype='str')
+            'PORTAFOGLIO': pd.Series(dtype='str'),
+            'CENTRO DI COSTO': pd.Series(dtype='str'),
+            'GESTORE': pd.Series(dtype='str'),
+            'NDG DEBITORE': pd.Series(dtype='str'),
+            'NOMINATIVO POSIZIONE': pd.Series(dtype='str'),
+            'NDG NOMINATIVO RICERCATO': pd.Series(dtype='str'),
+            'C.F.': pd.Series(dtype='str'),
+            'SERVIZIO RICHIESTO': pd.Series(dtype='str'),
+            'NOME SERVIZIO': pd.Series(dtype='str'),
+            'PROVIDER': pd.Series(dtype='str'),
+            'INVIATE AL PROVIDER': pd.Series(dtype='str'),
+            'COSTO': pd.Series(dtype='float'),
+            'MESE': pd.Series(dtype='Int64'),
+            'ANNO': pd.Series(dtype='Int64'),
+            'RIFATTURAZIONE': pd.Series(dtype='str'),
+            'NOMINATIVO RICERCA': pd.Series(dtype='str'),
+            'DATA RICHIESTA': pd.Series(dtype='str'),
+            'id': pd.Series(dtype='int')
         })
-        df_bi.to_parquet(bi_file, index=False)
-        st.success(f"✅ File BI creato per {username}")
-    
-    # Schema per file DT (Diffide, Telegrammi, Welcome Letter)
-    if not os.path.exists(dt_file):
+        
+        # Crea DataFrame vuoto per DT
         df_dt = pd.DataFrame({
-            'ndg': pd.Series(dtype='str'),
-            'tipo_documento': pd.Series(dtype='str'),  # 'diffida', 'telegramma', 'welcome_letter'
-            'nome_debitore': pd.Series(dtype='str'),
-            'cognome_debitore': pd.Series(dtype='str'),
-            'indirizzo': pd.Series(dtype='str'),
-            'cap': pd.Series(dtype='str'),
-            'citta': pd.Series(dtype='str'),
-            'provincia': pd.Series(dtype='str'),
-            'importo_debito': pd.Series(dtype='float'),
-            'data_richiesta': pd.Series(dtype='str'),
-            'stato': pd.Series(dtype='str'),
-            'username': pd.Series(dtype='str')
+            'PORTAFOGLIO': pd.Series(dtype='str'),
+            'CENTRO DI COSTO': pd.Series(dtype='str'),
+            'GESTORE': pd.Series(dtype='str'),
+            'NDG DEBITORE': pd.Series(dtype='str'),
+            'NOMINATIVO POSIZIONE': pd.Series(dtype='str'),
+            'TIPOLOGIA DOCUMENTO': pd.Series(dtype='str'),
+            'PROVIDER': pd.Series(dtype='str'),
+            'COSTO': pd.Series(dtype='float'),
+            'MESE': pd.Series(dtype='Int64'),
+            'ANNO': pd.Series(dtype='Int64'),
+            'DATA RICHIESTA': pd.Series(dtype='str'),
+            'id': pd.Series(dtype='int')
         })
-        df_dt.to_parquet(dt_file, index=False)
-        st.success(f"✅ File DT creato per {username}")
-    
-    return bi_file, dt_file
+        
+        # Salva su SharePoint come file Parquet
+        import io
+        
+        # File BI
+        buffer_bi = io.BytesIO()
+        df_bi.to_parquet(buffer_bi, index=False)
+        buffer_bi.seek(0)
+        nav.upload_file(
+            site_id, drive_id, 
+            f"{FOLDER_PATH}/{safe_email}_bi.parquet", 
+            buffer_bi.getvalue()
+        )
+        
+        # File DT
+        buffer_dt = io.BytesIO()
+        df_dt.to_parquet(buffer_dt, index=False)
+        buffer_dt.seek(0)
+        nav_dt.upload_file(
+            site_id_dt, drive_id_dt,
+            f"{DT_FOLDER_PATH}/{safe_email}_dt.parquet",
+            buffer_dt.getvalue()
+        )
+        
+        return True, "Profilo utente creato con successo"
+        
+    except Exception as e:
+        return False, f"Errore creazione profilo: {str(e)}"
 
 def authentication():
     col1, col2, col3 = st.columns(3)
@@ -97,18 +143,26 @@ def authentication():
                     username_raw = username_raw[:-4]
                 username = username_raw.replace(".", " ").title()
                 
+                # Registra su Firebase
                 ok, msg = firebase_register(email_norm, password)
                 if ok:
-                    st.success(f"Registrato come: {username}")
-                    # Crea i file al momento della registrazione
-                    try:
-                        create_user_files(email_norm, username)
-                        st.info("📁 File utente creati con successo!")
-                    except Exception as e:
-                        st.warning(f"Attenzione: errore nella creazione dei file - {e}")
+                    st.success(f"✅ Registrato come: {username}")
+                    
+                    # Crea profilo su SharePoint
+                    with st.spinner("Creazione profilo utente su SharePoint..."):
+                        profile_ok, profile_msg = create_user_profile_on_sharepoint(email_norm, username)
+                        
+                        if profile_ok:
+                            st.success(f"✅ {profile_msg}")
+                            st.info("🎉 Account creato! Ora puoi effettuare il login.")
+                        else:
+                            st.warning(f"⚠️ Account Firebase creato ma errore profilo SharePoint: {profile_msg}")
                 else:
-                    st.error(msg)
-                return None, None, None  
+                    st.error(f"❌ Errore registrazione: {msg}")
+                
+                # Dopo la registrazione, non fare il login automatico
+                # L'utente deve fare il login manualmente
+                st.stop()
 
             elif menu == "Login":
                 ok, user_info = firebase_login(email_norm, password)
@@ -121,15 +175,6 @@ def authentication():
                         if username_raw.endswith(".ext"):
                             username_raw = username_raw[:-4]
                         username = username_raw.replace(".", " ").title()
-                    
-                    # Crea i file al momento del login se non esistono
-                    try:
-                        bi_file, dt_file = create_user_files(email_norm, username)
-                        # Salva i percorsi in session_state per uso futuro
-                        st.session_state['bi_file_path'] = bi_file
-                        st.session_state['dt_file_path'] = dt_file
-                    except Exception as e:
-                        st.warning(f"Attenzione: errore nella verifica dei file - {e}")
                     
                     return ruolo, username, email_norm
                 else:
