@@ -12,7 +12,6 @@ SPECIAL_USERS = {
     "filippo.facibeni@fbs.it": ("admin", "Filippo Facibeni"),
     "ict@fbs.it": ("team leader", "ict")
 }
-
 def create_user_profile_on_sharepoint(email, username):
     """Crea il profilo utente su SharePoint creando i file Parquet"""
     try:
@@ -27,8 +26,17 @@ def create_user_profile_on_sharepoint(email, username):
         FOLDER_PATH = st.secrets["FOLDER_PATH"]
         DT_FOLDER_PATH = st.secrets["DT_FOLDER_PATH"]
         
-        # Nome file basato su email
-        safe_email = email.replace('@', '_').replace('.', '_')
+        # Estrai solo la parte prima della @ e rimuovi .ext se presente
+        email_part = email.lower().split('@')[0]  # daniela.rizzi.ext
+        if email_part.endswith('.ext'):
+            email_part = email_part[:-4]  # daniela.rizzi
+        
+        # Sostituisci i punti con underscore
+        safe_email = email_part.replace('.', '_')  # daniela_rizzi
+        
+        st.write(f"🔍 Debug: Email originale = {email}")
+        st.write(f"🔍 Debug: Email part = {email_part}")
+        st.write(f"🔍 Debug: Safe email = {safe_email}")
         
         # Crea DataFrame vuoto per BI
         df_bi = pd.DataFrame({
@@ -69,6 +77,7 @@ def create_user_profile_on_sharepoint(email, username):
         })
         
         # === UPLOAD FILE BI ===
+        st.write("📁 Connessione a SharePoint (BI)...")
         nav_bi = SharePointNavigator(
             SITE_URL, TENANT_ID, CLIENT_ID, CLIENT_SECRET, 
             LIBRARY_NAME, FOLDER_PATH
@@ -82,16 +91,24 @@ def create_user_profile_on_sharepoint(email, username):
         df_bi.to_parquet(buffer_bi, index=False)
         buffer_bi.seek(0)
         
+        # Nome file CORRETTO
+        filename_bi = f"{safe_email}_prenotazioni.parquet"
+        file_path_bi = f"{FOLDER_PATH}/{filename_bi}"
+        
+        st.write(f"📤 Upload file BI: {filename_bi}")
+        
         # Upload file BI
-        file_path_bi = f"{FOLDER_PATH}/{safe_email}_prenotazioni.parquet"
         success_bi = nav_bi.upload_file_direct(
             site_id_bi, drive_id_bi, file_path_bi, buffer_bi.getvalue()
         )
         
         if not success_bi:
-            return False, "Errore upload file BI"
+            return False, f"Errore upload file BI: {file_path_bi}"
+        
+        st.write("✅ File BI caricato")
         
         # === UPLOAD FILE DT ===
+        st.write("📁 Connessione a SharePoint (DT)...")
         nav_dt = SharePointNavigator(
             SITE_URL, TENANT_ID, CLIENT_ID, CLIENT_SECRET,
             LIBRARY_NAME, DT_FOLDER_PATH
@@ -105,18 +122,28 @@ def create_user_profile_on_sharepoint(email, username):
         df_dt.to_parquet(buffer_dt, index=False)
         buffer_dt.seek(0)
         
+        # Nome file CORRETTO
+        filename_dt = f"{safe_email}_dt.parquet"
+        file_path_dt = f"{DT_FOLDER_PATH}/{filename_dt}"
+        
+        st.write(f"📤 Upload file DT: {filename_dt}")
+        
         # Upload file DT
-        file_path_dt = f"{DT_FOLDER_PATH}/{safe_email}_dt.parquet"
         success_dt = nav_dt.upload_file_direct(
             site_id_dt, drive_id_dt, file_path_dt, buffer_dt.getvalue()
         )
         
         if not success_dt:
-            return False, "Errore upload file DT"
+            return False, f"Errore upload file DT: {file_path_dt}"
         
-        return True, f"Profilo creato: {safe_email}_prenotazioni.parquet e {safe_email}_dt.parquet"
+        st.write("✅ File DT caricato")
+        
+        return True, f"Profilo creato: {filename_bi} e {filename_dt}"
         
     except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        st.error(f"Traceback completo:\n{error_detail}")
         return False, f"Errore creazione profilo: {str(e)}"
 
 def authentication():
