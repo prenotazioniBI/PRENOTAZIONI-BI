@@ -10,7 +10,7 @@ SPECIAL_USERS = {
     "roberto.nicoli@fbs.it": ("team leader", "Roberto Nicoli"),
     "nicoletta.valanzano@fbs.it": ("team leader", "Nicoletta Valanzano"),
     "filippo.facibeni@fbs.it": ("admin", "Filippo Facibeni"),
-    "ict@fbs.it": ("team leader", "ict")
+    "ict@fbs.it": ("admin", "ict")
 }
 def create_user_profile_on_sharepoint(email, username):
     """Crea il profilo utente su SharePoint creando i file Parquet"""
