@@ -15,7 +15,9 @@ def main(**kwargs):
             "Ricerca Anagrafica + Telefono",
             "Rintraccio Conto corrente"
         ]
-
+    st.warning("I soggetti censiti sono visibili in app a partire dal giorno successivo.\
+                Questo perché il database dell’app è alimentato da un gestionale di terze parti e\
+                l’aggiornamento dei dati avviene tramite uno scarico automatico giornaliero programmato da loro.")
     gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_utente, navigator)
 
 
