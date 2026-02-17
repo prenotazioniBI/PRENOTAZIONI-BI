@@ -8,6 +8,9 @@ def banner_richiesta_utente(df_soggetti):
     cf = st.text_input("CODICE FISCALE o P.IVA *").strip()
     col1, _ = st.columns(2)
     avanti = col1.button("Avanti")
+    if df_soggetti is None:
+        st.warning("Nessun dato disponibile. Carica prima i dati dei soggetti.")
+        return
     df_soggetti = df_soggetti.copy()
     if avanti:
         if not cf:

@@ -289,6 +289,84 @@ def mostra_df_filtrato_home_admin(df):
     if df is None:
         return pd.DataFrame()
     return df
+def mostra_df_completo_dt(df_dt, key_suffix=""):
+    """Visualizza tutto il DataFrame delle richieste con filtri opzionali"""
+    if df_dt is None or df_dt.empty:
+        st.warning("Nessun dato disponibile")
+        return pd.DataFrame()
+    
+    df_dt = df_dt.copy()
+    
+    # Pulizia colonne numeriche
+    if 'NDG DEBITORE' in df_dt.columns:
+        df_dt['NDG DEBITORE'] = df_dt['NDG DEBITORE'].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', '')
+    
+    if 'NDG NOMINATIVO RICERCATO' in df_dt.columns:
+        df_dt['NDG NOMINATIVO RICERCATO'] = df_dt['NDG NOMINATIVO RICERCATO'].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', '')
+    
+    if 'NUMERO CIVICO' in df_dt.columns:
+        df_dt['NUMERO CIVICO'] = df_dt['NUMERO CIVICO'].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', '')
+    
+    if 'CAP' in df_dt.columns:
+        df_dt['CAP'] = df_dt['CAP'].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', '')
+    
+    # Aggiungi i 4 filtri
+    col1, col2, col3, col4 = st.columns([0.25, 0.25, 0.25, 0.25])
+    
+    with col1:
+        df_dt = filtro_gestore(df_dt, key_suffix=f"completo_gestore_dt_{key_suffix}")
+        if df_dt is None or df_dt.empty:
+            return pd.DataFrame()
+    with col2:
+        df_dt = filtro_portafoglio(df_dt, key_suffix=f"completo_portafoglio_dt_{key_suffix}")
+        if df_dt is None or df_dt.empty:
+            return pd.DataFrame()
+    with col3:
+        df_dt = filtro_servizio_dt(df_dt, key_suffix=f"completo_servizio_dt_{key_suffix}")
+        if df_dt is None or df_dt.empty:
+            return pd.DataFrame()
+    with col4:
+        df_dt = filtro_stato_provider(df_dt, key_suffix=f"completo_stato_dt_{key_suffix}")
+        if df_dt is None or df_dt.empty:
+            return pd.DataFrame()
+    
+    # Filtro DATA RICHIESTA (da gennaio 2026 in poi)
+    if "DATA RICHIESTA" in df_dt.columns:
+        date_col = pd.to_datetime(df_dt["DATA RICHIESTA"], dayfirst=True, errors="coerce")
+        valid_dates = date_col.dropna()
+        
+        if len(valid_dates) > 0:
+            min_date = valid_dates.min().date()
+            max_date = valid_dates.max().date()
+            
+            from datetime import date
+            default_date = date(2026, 1, 1)
+            
+            selected_date = st.date_input(
+                "Data Richiesta (da)",
+                value=default_date,
+                min_value=min_date,
+                max_value=max_date,
+                key=f"data_richiesta_completo_{key_suffix}"
+            )
+            
+            if selected_date:
+                mask = date_col.dt.date >= selected_date
+                df_dt = df_dt[mask]
+    
+    # Rimuovi le colonne non desiderate
+    colonne_da_escludere = ["UTP/NPL", "PROVIDER", "id", "MESE", "NUMERO CIVICO", "PEC", "COSTO", "ANNO", "CENTRO DI COSTO"]
+    df_dt = df_dt.drop(columns=[col for col in colonne_da_escludere if col in df_dt.columns])
+    
+    # Visualizza il DataFrame con i filtri applicati
+    if df_dt is not None and not df_dt.empty:
+        st.dataframe(df_dt, use_container_width=True, height=2000)
+    else:
+        st.warning("Nessun dato corrisponde ai filtri selezionati")
+    
+    return df_dt
+
+
 
 def mostra_df_filtrato_home_admin_dt(df_dt, key_suffix=""):
     if df_dt is None or df_dt.empty:

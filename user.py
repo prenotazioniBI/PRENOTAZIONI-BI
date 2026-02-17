@@ -122,50 +122,56 @@ def carica_richieste_personali_dt(nav):
         st.error(f"Errore nel caricamento delle richieste personali: {e}")
         return None
     
+
 def menu_utente_dt(df_dt, servizi_scelti, navigator_dt):
     """Gestisce il salvataggio delle richieste DT"""
     try:
         richiesta = st.session_state.get("richiesta", {})
-        for key, value in richiesta.items():
-            print(f"  {key}: '{value}'")
-        
+
+        def pick(*keys, default=""):
+            for k in keys:
+                v = richiesta.get(k, None)
+                if v is None or (isinstance(v, str) and not v.strip()):
+                    v = st.session_state.get(k, None)
+                if v is not None and (not isinstance(v, str) or v.strip()):
+                    return v.strip() if isinstance(v, str) else v
+            return default
+
         is_telegramma = "Telegramma" in servizi_scelti
         
         if is_telegramma:
-            indirizzo = richiesta.get("indirizzo_telegramma", "")
-            numeroCivico = richiesta.get("numeroCivico_telegramma", "")
-            comune = richiesta.get("comune_telegramma", "")
-            provincia = richiesta.get("provincia_telegramma", "")
-            sigla = richiesta.get("sigla_telegramma", "")
-            cap = richiesta.get("cap_telegramma", "")
-            regione = richiesta.get("regione_telegramma", "")
-            tipoLuogo = richiesta.get("tipoLuogo_telegramma", "")
+            indirizzo = pick("indirizzo_telegramma")
+            comune = pick("comune_telegramma")
+            provincia = pick("provincia_telegramma")
+            sigla = pick("sigla_telegramma")
+            cap = pick("cap_telegramma")
+            regione = pick("regione_telegramma")
+            tipoLuogo = pick("tipoLuogo_telegramma", "tipo_luogo_telegramma")
             pec = None
-            rapporto = richiesta.get("rapporto", "")  
-            gbvAttuale = richiesta.get("gbvAttuale", "")  
+            rapporto = pick("rapporto")
+            gbvAttuale = pick("gbvAttuale")
             originator = None
         else:
-            indirizzo = richiesta.get("indirizzo", "")
-            numeroCivico = richiesta.get("numeroCivico", "")
-            comune = richiesta.get("comune", "")
-            provincia = richiesta.get("provincia", "")
-            sigla = richiesta.get("sigla", "")
-            cap = richiesta.get("cap", "")
-            regione = richiesta.get("regione", "")
-            tipoLuogo = richiesta.get("tipoLuogo", "")
+            indirizzo = pick("indirizzo", "indirizzo_diffida")
+            comune = pick("comune", "comune_diffida")
+            provincia = pick("provincia", "provincia_diffida")
+            sigla = pick("sigla", "sigla_diffida")
+            cap = pick("cap", "cap_diffida")
+            regione = pick("regione", "regione_diffida")
+            tipoLuogo = pick("tipoLuogo", "tipo_luogo_diffida")
             pec = ""
-            for pec_key in ["indirizzoPostaElettronica", "pec_destinatario", "PEC DESTINATARIO"]:
-                pec_value = richiesta.get(pec_key, "")
-                if pec_value and pec_value.strip():  
-                    pec = pec_value.strip()
+            for pec_key in ["indirizzoPostaElettronica", "pec_destinatario", "PEC DESTINATARIO", "pec_diffida"]:
+                pec_value = pick(pec_key)
+                if pec_value:
+                    pec = pec_value
                     break
             
-            rapporto = richiesta.get("rapporto", "")
-            gbvAttuale = richiesta.get("gbvAttuale", "")
-            originator = richiesta.get("originator", "")
-        
-        email_gestore = richiesta.get("email_gestore", "")
-        telefono_gestore = richiesta.get("telefono_gestore", "")
+            rapporto = pick("rapporto")
+            gbvAttuale = pick("gbvAttuale")
+            originator = pick("originator")
+
+        email_gestore = pick("email_gestore")
+        telefono_gestore = pick("telefono_gestore")
 
         parametri = {
             "cf": richiesta.get("cf", ""),
@@ -177,7 +183,6 @@ def menu_utente_dt(df_dt, servizi_scelti, navigator_dt):
             "rapporto": rapporto,
             "gbvAttuale": gbvAttuale,
             "indirizzo": indirizzo,
-            "numeroCivico": numeroCivico,
             "comune": comune,
             "provincia": provincia,
             "sigla": sigla,
@@ -187,7 +192,8 @@ def menu_utente_dt(df_dt, servizi_scelti, navigator_dt):
             "pec": pec, 
             "originator": originator,
             "telefono_gestore": telefono_gestore,
-            "email_gestore": email_gestore
+            "email_gestore": email_gestore,
+            "motivazione": richiesta.get("motivazione", "") 
         }
         
         df_result, success, msg = salva_richiesta_utente_dt(

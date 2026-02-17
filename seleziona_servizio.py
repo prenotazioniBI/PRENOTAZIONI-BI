@@ -8,98 +8,119 @@ from urllib.parse import quote
 
 def controlla_duplicati_cf(cf_richiesta, servizi_scelti, navigator_dt):
     """
-    Controlla se esiste già una richiesta per lo stesso CF con gli stessi servizi
+    Controlla se esiste già una richiesta per lo stesso CF con gli stessi servizi,
+    anche da altri gestori (diversi portafogli)
     """
     try:
         nav = navigator_dt
-        user = st.session_state.get("user", {})
-        email = user.get("email", "")
         
-        # Crea nome file come in salva_richiesta_utente_dt
-        if email:
-            nome_cognome = email.split("@")[0].replace(".", "_").lower()
-            if nome_cognome.endswith("_ext"):
-                nome_cognome = nome_cognome[:-4]
-            nome_file = f"{nome_cognome}_dt.parquet"
-        else:
-            gestore = user.get("username", "Sconosciuto")
-            nome_file = f"{gestore.replace(' ', '_').lower()}_dt.parquet"
-        
+        # Carica il file centralizzato DT
         dt_folder_path = st.secrets["DT_FOLDER_PATH"]
-        file_path = f"{dt_folder_path}/{nome_file}"
+        file_centrale = f"{dt_folder_path}/dt.parquet"
         
         site_id = nav.get_site_id()
         drive_id, _ = nav.get_drive_id(site_id)
         
-        # Carica il file esistente
-        encoded_path = quote(file_path)
+        # Scarica il file centrale
+        encoded_path = quote(file_centrale)
         url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/root:/{encoded_path}:/content"
         headers = {"Authorization": f"Bearer {nav.access_token}"}
         
         response = requests.get(url, headers=headers)
         
         if response.status_code == 200:
-            df_esistente = pd.read_parquet(BytesIO(response.content))
+            df_centrale = pd.read_parquet(BytesIO(response.content))
             
-            if not df_esistente.empty and "CF" in df_esistente.columns:
-                # Converti data richiesta
-                if "DATA RICHIESTA" in df_esistente.columns:
-                    df_esistente["DATA RICHIESTA"] = pd.to_datetime(df_esistente["DATA RICHIESTA"], errors="coerce")
+            # Converti DATA RICHIESTA in datetime
+            df_centrale["DATA RICHIESTA"] = pd.to_datetime(
+                df_centrale["DATA RICHIESTA"], errors="coerce", dayfirst=True
+            )
+            
+            # Normalizza CF
+            df_centrale["CF"] = df_centrale["CF"].astype(str).str.strip().str.upper()
+            cf_richiesta_upper = str(cf_richiesta).strip().upper()
+            
+            # Filtra per CF
+            richieste_cf = df_centrale[df_centrale["CF"] == cf_richiesta_upper].copy()
+            
+            if not richieste_cf.empty:
+                # Controlla se ci sono Diffida o Welcome Letter per questo CF
+                servizi_da_controllare = ["DIFFIDA", "WELCOME LETTER"]
                 
-                # Filtra per CF
-                richieste_cf = df_esistente[
-                    df_esistente["CF"].astype(str).str.upper() == cf_richiesta.upper()
-                ].copy()
-                
-                if not richieste_cf.empty:
-                    # Controlla ogni servizio richiesto
-                    servizi_str = ", ".join(sorted(servizi_scelti))
-                    
-                    for _, riga in richieste_cf.iterrows():
-                        tipologia_esistente = str(riga.get("TIPOLOGIA DOCUMENTO", ""))
+                for servizio in servizi_scelti:
+                    if servizio in ["Diffida", "Welcome Letter"]:
+                        # Cerca nel file centrale
+                        richieste_simili = richieste_cf[
+                            richieste_cf["TIPOLOGIA DOCUMENTO"].str.contains(
+                                servizio.upper(), case=False, na=False
+                            )
+                        ].copy()
                         
-                        # Controlla se c'è overlap nei servizi
-                        servizi_esistenti = [s.strip() for s in tipologia_esistente.split(",")]
-                        overlap = set(servizi_scelti) & set(servizi_esistenti)
-                        
-                        if overlap:
-                            data_esistente = riga.get("DATA RICHIESTA")
-                            if pd.notna(data_esistente):
-                                # Calcola giorni fa
-                                oggi = pd.Timestamp.now()
-                                giorni_fa = (oggi - data_esistente).days
+                        if not richieste_simili.empty:
+                            # Calcola giorni dalla richiesta più recente
+                            from datetime import datetime
+                            import pytz
+                            
+                            roma_tz = pytz.timezone("Europe/Rome")
+                            oggi = datetime.now(roma_tz).date()
+                            
+                            richieste_simili["giorni_fa"] = richieste_simili["DATA RICHIESTA"].apply(
+                                lambda x: (oggi - x.date()).days if pd.notna(x) else None
+                            )
+                            
+                            # Filtra solo richieste degli ultimi 365 giorni
+                            richieste_recenti = richieste_simili[
+                                (richieste_simili["giorni_fa"] >= 0) & 
+                                (richieste_simili["giorni_fa"] <= 365)
+                            ]
+                            
+                            if not richieste_recenti.empty:
+                                # Prendi la più recente
+                                richiesta_precedente = richieste_recenti.sort_values(
+                                    "DATA RICHIESTA", ascending=False
+                                ).iloc[0]
                                 
-            
-                                if 0 <= giorni_fa <= 30:
-                                    data_str = data_esistente.strftime("%d/%m/%Y")
-                                    
-                                    if giorni_fa == 0:
-                                        tempo_msg = "oggi"
-                                    elif giorni_fa == 1:
-                                        tempo_msg = "1 giorno fa"
-                                    else:
-                                        tempo_msg = f"{giorni_fa} giorni fa"
-                                    
-                                    servizi_duplicati = ", ".join(overlap)
-                                    
-                                    msg_errore = (
-                                        f"RICHIESTA DUPLICATA PER CF {cf_richiesta}\n\n"
-                                        f"Servizi già richiesti: {servizi_duplicati}\n"
-                                        f"Data richiesta precedente: {data_str} ({tempo_msg})\n\n"
-                                        f"Puoi richiedere nuovamente tra {30 - giorni_fa} giorni"
-                                    )
-                                    
-                                    return False, msg_errore
-                
-        elif response.status_code != 404:
-            return False, f"Errore caricamento file: {response.status_code}"
+                                giorni_fa = int(richiesta_precedente["giorni_fa"])
+                                data_precedente = richiesta_precedente["DATA RICHIESTA"].strftime("%d/%m/%Y")
+                                gestore_precedente = richiesta_precedente.get("GESTORE", "Sconosciuto")
+                                portafoglio_precedente = richiesta_precedente.get("PORTAFOGLIO", "Sconosciuto")
+                                modalita_invio = richiesta_precedente.get("MODALITA INVIO", "Non specificata")
+                                
+                                # Formatta messaggio
+                                if giorni_fa == 0:
+                                    tempo_msg = "oggi"
+                                elif giorni_fa == 1:
+                                    tempo_msg = "1 giorno fa"
+                                elif giorni_fa < 30:
+                                    tempo_msg = f"{giorni_fa} giorni fa"
+                                elif giorni_fa < 365:
+                                    mesi = giorni_fa // 30
+                                    tempo_msg = f"{mesi} {'mese' if mesi == 1 else 'mesi'} fa ({giorni_fa} giorni)"
+                                else:
+                                    tempo_msg = f"{giorni_fa} giorni fa"
+                                
+                                msg_errore = (
+                                    f"⚠️ ATTENZIONE - RICHIESTA DUPLICATA\n\n"
+                                    f"Il servizio '{servizio}' per il CF **{cf_richiesta_upper}** è già stato richiesto:\n\n"
+                                    f" **Data:** {data_precedente} ({tempo_msg})\n"
+                                    f" **Gestore:** {gestore_precedente}\n"
+                                    f" **Portafoglio:** {portafoglio_precedente}\n"
+                                    f" **Modalità invio:** {modalita_invio}\n\n"
+                                    f" Puoi richiederlo nuovamente tra **{365 - giorni_fa} giorni**"
+                                )
+                                
+                                st.error(msg_errore)
+                                return False
         
+        elif response.status_code != 404:
+            st.warning(f"Errore durante il controllo duplicati: {response.status_code}")
       
-        return True, "Nessun duplicato trovato"
+        return True
         
     except Exception as e:
         print(f"Errore controllo duplicati CF: {e}")
-        return False, f"Errore controllo duplicati: {str(e)}"
+        st.warning(f"Impossibile verificare duplicati: {e}")
+        return True
 
 
 
@@ -164,20 +185,15 @@ def seleziona_servizio(dt_soggetti, df_dt, navigator_dt, menu_utente_dt):
                         key="pec_diffida",
                         help="Indirizzo PEC del destinatario")
                 
+
                 elif tipo_invio == "RACCOMANDATA":
                     st.markdown("**Dati indirizzo per invio postale:**")
                     
                     col1, col2 = st.columns(2)
-                    
-
 
                     with col1:
-            
                         indirizzo_raw = soggetto_completo.get('indirizzo', '')
                         indirizzo_value = "" if pd.isna(indirizzo_raw) or indirizzo_raw is None else str(indirizzo_raw)
-                        
-                        numero_civico_raw = soggetto_completo.get('numeroCivico', '')
-                        numero_civico_value = "" if pd.isna(numero_civico_raw) or numero_civico_raw is None else str(numero_civico_raw)
                         
                         comune_raw = soggetto_completo.get('comune', '')
                         comune_value = "" if pd.isna(comune_raw) or comune_raw is None else str(comune_raw)
@@ -185,12 +201,10 @@ def seleziona_servizio(dt_soggetti, df_dt, navigator_dt, menu_utente_dt):
                         provincia_raw = soggetto_completo.get('provincia', '')
                         provincia_value = "" if pd.isna(provincia_raw) or provincia_raw is None else str(provincia_raw)
                         
-                        indirizzo_mod = st.text_input("Indirizzo *", 
+                        indirizzo_mod = st.text_input("Indirizzo (via e numero civico) *", 
                             value=indirizzo_value, 
-                            key="indirizzo_diffida")
-                        numero_civico_mod = st.text_input("Numero Civico *", 
-                            value=numero_civico_value, 
-                            key="numero_civico_diffida")
+                            key="indirizzo_diffida",
+                            help="Inserisci via e numero civico insieme (es: Via Roma 10)")
                         comune_mod = st.text_input("Comune *", 
                             value=comune_value, 
                             key="comune_diffida")
@@ -233,6 +247,7 @@ def seleziona_servizio(dt_soggetti, df_dt, navigator_dt, menu_utente_dt):
                             value=originator_default, 
                             key="originator",
                             help="Nome dell'Originator")
+
        
             if "Telegramma" in servizi_scelti:
                 st.markdown("**Dati indirizzo di spedizione Telegramma:**")
@@ -245,9 +260,6 @@ def seleziona_servizio(dt_soggetti, df_dt, navigator_dt, menu_utente_dt):
                     indirizzo_raw = soggetto_completo.get('indirizzo', '')
                     indirizzo_value = "" if pd.isna(indirizzo_raw) or indirizzo_raw is None else str(indirizzo_raw)
                     
-                    numero_civico_raw = soggetto_completo.get('numeroCivico', '')
-                    numero_civico_value = "" if pd.isna(numero_civico_raw) or numero_civico_raw is None else str(numero_civico_raw)
-                    
                     comune_raw = soggetto_completo.get('comune', '')
                     comune_value = "" if pd.isna(comune_raw) or comune_raw is None else str(comune_raw)
                     
@@ -257,9 +269,6 @@ def seleziona_servizio(dt_soggetti, df_dt, navigator_dt, menu_utente_dt):
                     indirizzo_mod = st.text_input("Indirizzo *", 
                         value=indirizzo_value, 
                         key="indirizzo_telegramma")
-                    numero_civico_mod = st.text_input("Numero Civico *", 
-                        value=numero_civico_value, 
-                        key="numero_civico_telegramma")
                     comune_mod = st.text_input("Comune *", 
                         value=comune_value, 
                         key="comune_telegramma")
@@ -292,6 +301,7 @@ def seleziona_servizio(dt_soggetti, df_dt, navigator_dt, menu_utente_dt):
                     tipo_luogo_mod = st.text_input("Tipo Luogo", 
                         value=tipo_luogo_value, 
                         key="tipo_luogo_telegramma")
+
             
             st.divider()
 
@@ -320,7 +330,17 @@ def seleziona_servizio(dt_soggetti, df_dt, navigator_dt, menu_utente_dt):
                         value=nome_gestore, 
                         disabled=True,
                         help="Nome del gestore loggato")
-        
+            st.divider()
+
+
+            st.markdown("**Seleziona Motivazione:**")
+
+            st.selectbox(
+                    "Seleziona il motivo:",
+                    ["STIMOLARE CONTATTO", "INTERROMPERE PRESCRIZIONE","AVVIO ATTI"],
+                    key="motivazione"
+                )
+                
         else:
             st.error("Impossibile recuperare i dati completi del soggetto")
             st.stop()
@@ -360,7 +380,6 @@ def valida_campi_obbligatori(servizi_scelti):
         elif tipo_invio == "RACCOMANDATA":
             campi_raccomandata = {
                 "indirizzo_diffida": "Indirizzo",
-                "numero_civico_diffida": "Numero Civico", 
                 "comune_diffida": "Comune",
                 "cap_diffida": "CAP",
                 "originator": "Originator"
@@ -374,7 +393,6 @@ def valida_campi_obbligatori(servizi_scelti):
     if "Telegramma" in servizi_scelti:
         campi_telegramma = {
             "indirizzo_telegramma": "Indirizzo",
-            "numero_civico_telegramma": "Numero Civico",
             "comune_telegramma": "Comune", 
             "cap_telegramma": "CAP"
         }
@@ -386,6 +404,100 @@ def valida_campi_obbligatori(servizi_scelti):
     
     return errori
 
+def controlla_limite_mensile_gestore(navigator_dt):
+    """
+    Controlla se il gestore ha già raggiunto il limite di 50 richieste mensili
+    tra Diffida, Welcome Letter e Telegramma
+    """
+    try:
+        nav = navigator_dt
+        user = st.session_state.get("user", {})
+        gestore_corrente = user.get("username", "").strip()
+        
+        if not gestore_corrente:
+            st.warning("Impossibile identificare il gestore corrente")
+            return True
+        
+        # Carica il file centralizzato DT
+        dt_folder_path = st.secrets["DT_FOLDER_PATH"]
+        file_centrale = f"{dt_folder_path}/dt.parquet"
+        
+        site_id = nav.get_site_id()
+        drive_id, _ = nav.get_drive_id(site_id)
+        
+        # Scarica il file centrale
+        encoded_path = quote(file_centrale)
+        url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/root:/{encoded_path}:/content"
+        headers = {"Authorization": f"Bearer {nav.access_token}"}
+        
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            df_centrale = pd.read_parquet(BytesIO(response.content))
+            
+            # Converti DATA RICHIESTA in datetime
+            df_centrale["DATA RICHIESTA"] = pd.to_datetime(
+                df_centrale["DATA RICHIESTA"], errors="coerce", dayfirst=True
+            )
+            
+            # Normalizza GESTORE
+            df_centrale["GESTORE"] = df_centrale["GESTORE"].astype(str).str.strip().str.lower()
+            gestore_lower = gestore_corrente.lower()
+            
+            # Calcola mese e anno corrente
+            from datetime import datetime
+            import pytz
+            
+            roma_tz = pytz.timezone("Europe/Rome")
+            ora_corrente = datetime.now(roma_tz)
+            mese_corrente = ora_corrente.month
+            anno_corrente = ora_corrente.year
+            
+            # Filtra richieste del gestore nel mese corrente
+            richieste_gestore_mensili = df_centrale[
+                (df_centrale["GESTORE"] == gestore_lower) &
+                (df_centrale["DATA RICHIESTA"].dt.month == mese_corrente) &
+                (df_centrale["DATA RICHIESTA"].dt.year == anno_corrente)
+            ].copy()
+            
+            # Conta solo Diffida, Welcome Letter e Telegramma
+            servizi_conteggiati = ["DIFFIDA", "WELCOME LETTER", "TELEGRAMMA"]
+            
+            conteggio = 0
+            for _, row in richieste_gestore_mensili.iterrows():
+                tipologia = str(row.get("TIPOLOGIA DOCUMENTO", "")).upper()
+                for servizio in servizi_conteggiati:
+                    if servizio in tipologia:
+                        conteggio += 1
+                        break  # Conta ogni richiesta una sola volta
+            
+            LIMITE_MENSILE = 50
+            
+            if conteggio >= LIMITE_MENSILE:
+                msg_errore = (
+                    f"🚫 LIMITE MENSILE RAGGIUNTO\n\n"
+                    f"Hai già effettuato **{conteggio}/{LIMITE_MENSILE}** richieste questo mese "
+                    f"({mese_corrente}/{anno_corrente}).\n\n"
+                    f"Il limite mensile per Diffida, Welcome Letter e Telegramma è di **{LIMITE_MENSILE} richieste** per gestore.\n\n"
+                    f"⏳ Potrai effettuare nuove richieste dal mese prossimo."
+                )
+                st.error(msg_errore)
+                return False
+            
+            # Mostra info rimanenti
+            rimanenti = LIMITE_MENSILE - conteggio
+            st.info(f"ℹ️ Hai effettuato **{conteggio}/{LIMITE_MENSILE}** richieste questo mese. Ti rimangono **{rimanenti}** richieste disponibili.")
+            return True
+        
+        elif response.status_code != 404:
+            st.warning(f"Errore durante il controllo limite mensile: {response.status_code}")
+      
+        return True
+        
+    except Exception as e:
+        print(f"Errore controllo limite mensile: {e}")
+        st.warning(f"Impossibile verificare limite mensile: {e}")
+        return True
 def conferma_invio_richiesta(servizi_scelti, df_dt, navigator_dt, menu_utente_dt):
     if st.button("Conferma invio richiesta", key="conferma_richiesta", disabled=st.session_state["richiesta_in_corso"]):
         if not servizi_scelti:
@@ -399,30 +511,27 @@ def conferma_invio_richiesta(servizi_scelti, df_dt, navigator_dt, menu_utente_dt
                 st.error(f"• {errore}")
             st.stop()
 
+        # CONTROLLO LIMITE MENSILE GESTORE
+        if not controlla_limite_mensile_gestore(navigator_dt):
+            st.stop()  # Blocca l'invio se limite raggiunto
+
         cf_richiesta = st.session_state.get("richiesta", {}).get("cf", "")
-        if cf_richiesta:
-            duplicato_ok, msg_duplicato = controlla_duplicati_cf(cf_richiesta, servizi_scelti, navigator_dt)
-            if not duplicato_ok:
-                st.error(msg_duplicato)
-                st.stop()
+        
+        # CONTROLLO DUPLICATI CROSS-GESTORE
+        if cf_richiesta and any(serv in ["Diffida", "Welcome Letter"] for serv in servizi_scelti):
+            if not controlla_duplicati_cf(cf_richiesta, servizi_scelti, navigator_dt):
+                st.stop()  # Blocca l'invio se trovato duplicato
     
         if servizi_scelti:
             if any(servizio in ["Diffida", "Welcome Letter"] for servizio in servizi_scelti):
                 tipo_invio = st.session_state.get("tipo_invio_diffida", "")
-                
                 st.session_state["richiesta"]["tipo_invio_diffida"] = tipo_invio
-                
-                if tipo_invio == "PEC":
-                    pec_value = st.session_state.get("pec_diffida", "").strip()
-                    
-                    if pec_value:
-                        st.session_state["richiesta"]["PEC DESTINATARIO"] = pec_value
 
+                if tipo_invio == "RACCOMANDATA":
+                    indirizzo_completo = st.session_state.get("indirizzo_diffida", "").strip()
                     
-                elif tipo_invio == "RACCOMANDATA":
                     st.session_state["richiesta"].update({
-                        "indirizzo": st.session_state.get("indirizzo_diffida", "").strip(),
-                        "numeroCivico": st.session_state.get("numero_civico_diffida", "").strip(),
+                        "indirizzo": indirizzo_completo,
                         "comune": st.session_state.get("comune_diffida", "").strip(),
                         "provincia": st.session_state.get("provincia_diffida", "").strip(),
                         "sigla": st.session_state.get("sigla_diffida", "").strip(),
@@ -436,7 +545,6 @@ def conferma_invio_richiesta(servizi_scelti, df_dt, navigator_dt, menu_utente_dt
                 st.session_state["richiesta"].update({
                     "tipo_invio_telegramma": "RACCOMANDATA",
                     "indirizzo_telegramma": st.session_state.get("indirizzo_telegramma", "").strip(),
-                    "numeroCivico_telegramma": st.session_state.get("numero_civico_telegramma", "").strip(),
                     "comune_telegramma": st.session_state.get("comune_telegramma", "").strip(),
                     "provincia_telegramma": st.session_state.get("provincia_telegramma", "").strip(),
                     "sigla_telegramma": st.session_state.get("sigla_telegramma", "").strip(),
@@ -447,7 +555,8 @@ def conferma_invio_richiesta(servizi_scelti, df_dt, navigator_dt, menu_utente_dt
         
             st.session_state["richiesta"].update({
                 "email_gestore": st.session_state.get("email_gestore", "").strip(),
-                "telefono_gestore": st.session_state.get("telefono_gestore", "").strip()
+                "telefono_gestore": st.session_state.get("telefono_gestore", "").strip(),
+                "motivazione": st.session_state.get("motivazione", "").strip()
             })
             
             if any(servizio in ["Diffida", "Welcome Letter"] for servizio in servizi_scelti):

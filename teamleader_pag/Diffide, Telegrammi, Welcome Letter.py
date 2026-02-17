@@ -1,18 +1,17 @@
-from nav_dt import visualizza_richieste_personali_dt
+from filtro_df import mostra_df_completo_dt
 import streamlit as st
+
+
 def main(**kwargs):
 
-    st.title("Diffide, Welcome Letter e Telegrammi Inviati")
+    st.title("Diffide, Welcome Letter e Telegrammi")
     df_dt = kwargs.get('df_dt_full')
     navigator_dt = kwargs.get('navigator_dt')
 
     st.subheader("Dati Richieste")
-    st.info("per visualizzare tutte le richieste clicca sull'icona di aggiornamento e attendi qualche secondo.")
-    visualizza_richieste_personali_dt(navigator_dt, df_dt)
-    st.divider()
+    mostra_df_completo_dt(df_dt, key_suffix="1")
 
 if __name__ == "__main__":
-
     
     main(
         user=None,
