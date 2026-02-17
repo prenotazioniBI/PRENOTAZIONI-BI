@@ -17,8 +17,8 @@ def get_pages_by_role(role):
         },
         'team leader': {
             'folder': 'teamleader_pag',
-            'pages': ['Le mie Bi', 'Nuova BI',  'Nuova Diffida, Telegramma, Welcome Letter','Le mie Diffide, Telegrammi, Welcome Letter', 'Richiesta Massiva'],
-            'page_labels':['Le mie Bi', 'Nuova BI',  'Nuova Diffida, Telegramma, Welcome Letter','Le mie Diffide, Telegrammi, Welcome Letter', 'Richiesta Massiva'],
+            'pages': ['Business Information', 'Nuova BI',  'Nuova Diffida, Telegramma, Welcome Letter','Diffide, Telegrammi, Welcome Letter', 'Richiesta Massiva'],
+            'page_labels':['Business Information', 'Nuova BI',  'Nuova Diffida, Telegramma, Welcome Letter','Diffide, Telegrammi, Welcome Letter', 'Richiesta Massiva'],
             'icons': ['bi-person', 'bi-plus-circle', 'bi-plus-circle',  'bi-list-check', 'bi-person-lines-fill']
         },
         'analista': {
@@ -29,8 +29,8 @@ def get_pages_by_role(role):
         },
         'utente': {
             'folder': 'user_pag',
-            'pages': ['Le mie Bi', 'Nuova Bi',  'Nuova Diffida - Telegramma','Le mie Diffide - Telegrammi', 'Analisi'],
-            'page_labels': ['Le mie Bi', 'Nuova Bi', 'Nuova Diffida - Telegramma','Le mie Diffide - Telegrammi','Analisi'],
+            'pages': ['Le mie Bi', 'Nuova Bi',  'Nuova Diffida - Telegramma - Welcome Letter','Le mie Diffide - Telegrammi - Welcome letter', 'Analisi'],
+            'page_labels': ['Le mie Bi', 'Nuova Bi', 'Nuova Diffida - Telegramma - Welcome Letter','Le mie Diffide - Telegrammi - Welcome letter','Analisi'],
             'icons': [ 'bi-person-lines-fill', 'bi-plus-circle', 'bi-plus-circle', 'bi-list-check', 'bi-graph-up']
         }
     }

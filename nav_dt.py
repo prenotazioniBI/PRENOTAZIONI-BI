@@ -54,7 +54,7 @@ def visualizza_richieste_personali_dt(nav, df_centralizzato_dt=None):
     df_personale = carica_richieste_personali_dt(nav)
     
     if df_personale.empty:
-        st.info("Nessuna richiesta DT personale trovata")
+        st.info("Nessuna richiesta trovata")
         return pd.DataFrame()
     
     # Carica il file centralizzato dt.parquet se non fornito
@@ -162,7 +162,6 @@ def visualizza_richieste_personali_dt(nav, df_centralizzato_dt=None):
                 "GBV ATTUALE",
                 "PEC DESTINATARIO",
                 "INDIRIZZO",
-                "NUMERO CIVICO",
                 "CITTA",
                 "PROVINCIA",
                 "CAP",
@@ -172,8 +171,9 @@ def visualizza_richieste_personali_dt(nav, df_centralizzato_dt=None):
                 "TIPOLOGIA DOCUMENTO",
                 "DATA RICHIESTA",
                 "id",
-                "INVIATE AL PROVIDER"]
-        
+                "INVIATE AL PROVIDER",
+                "MOTIVAZIONE"]
+
         # Controlla quali colonne esistono effettivamente
         colonne_sett = [c for c in colonne_vista_dt if c in df_settimanale.columns]
         colonne_stor = [c for c in colonne_vista_dt if c in df_storico.columns]

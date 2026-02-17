@@ -10,11 +10,11 @@ from filtro_df import mostra_df_filtrato_home_admin_dt
 def salva_richiesta_utente_dt(df_dt, servizi_scelti, navigator_dt, cf=None, portafoglio=None, ndg_debitore=None, 
                              nominativo_posizione=None, ndg_nominativo_ricercato=None,
                              nominativo_ricerca=None, rapporto=None, gbvAttuale=None,
-                             indirizzo=None, numeroCivico=None, comune=None, 
+                             indirizzo=None,  comune=None, 
                              provincia=None, sigla=None, cap=None, regione=None,
                              tipoLuogo=None, pec=None,
                              originator=None, telefono_gestore=None,
-                             email_gestore=None, **kwargs):
+                             email_gestore=None, motivazione=None,**kwargs):
     
     try:
         nav = navigator_dt
@@ -103,8 +103,7 @@ def salva_richiesta_utente_dt(df_dt, servizi_scelti, navigator_dt, cf=None, port
             "RAPPORTO": rapporto if not is_telegramma else None,       
             "GBV ATTUALE": gbvAttuale if not is_telegramma else None,  
             "PEC DESTINATARIO": pec,
-            "INDIRIZZO": indirizzo,
-            "NUMERO CIVICO": numeroCivico,
+            "INDIRIZZO": (indirizzo or "").strip(),
             "CITTA": comune,
             "PROVINCIA": provincia,
             "SIGLA": sigla,
@@ -117,7 +116,8 @@ def salva_richiesta_utente_dt(df_dt, servizi_scelti, navigator_dt, cf=None, port
             "TIPOLOGIA DOCUMENTO": tipologia_documento,
             "DATA RICHIESTA": data_richiesta,
             "INVIATE AL PROVIDER": None,
-            "COSTO": None
+            "COSTO": None,
+            "MOTIVAZIONE": motivazione
         }
         
         
@@ -330,14 +330,15 @@ def pulisci_dataframe(df):
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors='coerce')
     
-    # NDG, NUMERO CIVICO, CAP devono rimanere stringhe
-    string_cols = ["NDG DEBITORE", "NDG NOMINATIVO RICERCATO", "NUMERO CIVICO", "CAP"]
+
+    string_cols = ["NDG DEBITORE", "NDG NOMINATIVO RICERCATO", "CAP"]
     for col in string_cols:
         if col in df.columns:
             df[col] = df[col].astype(str)
             df[col] = df[col].str.replace(r'\.0$', '', regex=True)
             df[col] = df[col].replace('nan', '')
     
+
     # Altri campi di testo
     text_cols = ["CF", "TIPOLOGIA DOCUMENTO", "DESTINATARIO", "GESTORE", 
                 "PORTAFOGLIO", "NOMINATIVO POSIZIONE", "ORIGINATOR"]
@@ -383,7 +384,6 @@ def modifica_celle_excel_dt(df_dt, mostra_editor=True, key_suffix=""):
         "REGIONE",
         "PEC DESTINATARIO",
         "INDIRIZZO",
-        "NUMERO CIVICO",
         "CITTA",
         "CAP",
         "PROVINCIA",

@@ -6,8 +6,6 @@ from seleziona_servizio import seleziona_servizio, conferma_invio_richiesta
 
 def main(**kwargs):
     st.title("Prenotazioni Invio di Diffide, Welcome Letter e Telegrammi")
-    st.success("------------------ IN ATTESA DI APPROVAZIONE -------------------      \n\n" \
-    "Nuova funzionalità per richiedere l'invio di Diffide, Welcome Letter e Telegrammi")
 
     # df_dt = kwargs.get('df_dt_full')
     # navigator_dt = kwargs.get('navigator_dt')
