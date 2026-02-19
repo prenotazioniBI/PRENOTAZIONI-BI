@@ -99,10 +99,18 @@ def gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_funzione, nav, nom
                     st.session_state["richiesta_in_corso"] = True
                     
                     # Chiama la funzione menu appropriata (utente o admin)
-                    df, esito, msg = menu_funzione(df, servizi_scelti, nav)
-                    
+                    with st.spinner("Elaborazione in corso..."):
+                        df, esito, msg = menu_funzione(df, servizi_scelti, nav)
+
                     if esito:
-                        st.success(msg)
+                        # Crea un placeholder per il messaggio di successo
+                        success_placeholder = st.empty()
+                        success_placeholder.success(msg)
+                        
+                        # Aspetta prima di procedere (opzionale, dà tempo all'utente di leggere)
+                        import time
+                        time.sleep(2)
+                        
                         # Pulisci lo stato
                         for key in ["richiesta", "servizi_scelti", "inserimento_richiesta", "richiesta_in_corso"]:
                             if key in st.session_state:
@@ -110,5 +118,4 @@ def gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_funzione, nav, nom
                         st.rerun()
                     else:
                         st.error(msg)
-                        # Riabilita il pulsante in caso di errore
                         st.session_state["richiesta_in_corso"] = False
