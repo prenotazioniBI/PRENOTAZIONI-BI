@@ -20,11 +20,6 @@ def main(**kwargs):
         st.warning("Dati mancanti.")
         st.stop()
 
-    with st.expander("🔍 DEBUG - Colonne disponibili"):
-        st.write("**df.columns:**")
-        st.write(list(df.columns))
-        st.write("**dt_performance.columns:**")
-        st.write(list(dt_performance.columns))
 
     if dt_performance is None:
         st.warning("dt_performance non disponibile.")
