@@ -30,8 +30,9 @@ def banner_richiesta_utente(df_soggetti):
                 st.stop()
         if not soggetti_cf.empty:
             portafogli = soggetti_cf["portafoglio"].unique().tolist()
-            st.session_state.soggetti_cf = soggetti_cf
+            st.session_state.soggetti_cf = soggetti_cf.to_dict("records")
             st.session_state.portafogli = portafogli
+            st.session_state.cf_salvato = cf
             st.session_state.cf_ok = True
             st.rerun()
         else:
@@ -39,41 +40,63 @@ def banner_richiesta_utente(df_soggetti):
             st.stop()
 
     if st.session_state.get("cf_ok", False):
-        soggetti_cf = st.session_state.soggetti_cf
+        soggetti_cf = pd.DataFrame(st.session_state.soggetti_cf)
         portafogli = st.session_state.portafogli
+        cf = st.session_state.get("cf_salvato", "")
+
         if len(portafogli) > 1:
             portafoglio_sel = st.selectbox("Seleziona portafoglio", portafogli)
             conferma = st.button("Conferma selezione portafoglio")
             if conferma:
-                soggetto = soggetti_cf[soggetti_cf["portafoglio"] == portafoglio_sel].iloc[0]
-                st.session_state.richiesta = {
-                    "cf": cf,
-                    "portafoglio": portafoglio_sel,
-                    "ndg_debitore": soggetto["ndg"],
-                    "nominativo_posizione": soggetto["intestazione"],
-                    "ndg_nominativo_ricercato": soggetto["ndgSoggetto"],
-                    "nominativo_ricerca": soggetto["nomeCompleto"]
-                }
-                st.success("Dati inseriti correttamente.")
-                st.session_state["active_tab"] = 1
-                del st.session_state.cf_ok
-                del st.session_state.soggetti_cf
-                del st.session_state.portafogli
+                st.session_state.portafoglio_sel = portafoglio_sel
                 st.rerun()
+            st.stop()
         else:
-            soggetto = soggetti_cf.iloc[0]
-            portafoglio_sel = soggetto["portafoglio"]
-            st.session_state.richiesta = {
-                "cf": cf,
-                "portafoglio": portafoglio_sel,
-                "ndg_debitore": soggetto["ndg"],
-                "nominativo_posizione": soggetto["intestazione"],
-                "ndg_nominativo_ricercato": soggetto["ndgSoggetto"],
-                "nominativo_ricerca": soggetto["nomeCompleto"]
-            }
-            st.success("Dati inseriti correttamente.")
-            st.session_state["active_tab"] = 1
-            del st.session_state.cf_ok
-            del st.session_state.soggetti_cf
-            del st.session_state.portafogli
-            st.rerun()
+            if "portafoglio_sel" not in st.session_state:
+                st.session_state.portafoglio_sel = portafogli[0]
+
+        portafoglio_sel = st.session_state.portafoglio_sel
+        soggetti_pf = soggetti_cf[soggetti_cf["portafoglio"] == portafoglio_sel]
+
+        # --- CHECK NDG MULTIPLI ---
+        ndg_unici = soggetti_pf["ndg"].astype(str).unique().tolist() if "ndg" in soggetti_pf.columns else []
+
+        if len(ndg_unici) > 1:
+            if "ndg_sel" not in st.session_state:
+                st.warning(
+                    f"Il codice fiscale è associato a **{len(ndg_unici)} posizioni diverse**. "
+                    "Seleziona quella di interesse:"
+                )
+                ndg_options = {}
+                for ndg in ndg_unici:
+                    rec = soggetti_pf[soggetti_pf["ndg"].astype(str) == ndg].iloc[0]
+                    ndg_options[ndg] = f"{rec.get('intestazione', 'N/A')} — NDG: {ndg}"
+
+                ndg_sel = st.selectbox(
+                    "Posizioni disponibili:",
+                    options=list(ndg_options.keys()),
+                    format_func=lambda x: ndg_options[x]
+                )
+                if st.button("Conferma posizione"):
+                    st.session_state.ndg_sel = ndg_sel
+                    st.rerun()
+                st.stop()
+
+            soggetti_pf = soggetti_pf[soggetti_pf["ndg"].astype(str) == st.session_state.ndg_sel]
+        # --- fine check NDG ---
+
+        soggetto = soggetti_pf.iloc[0]
+        portafoglio_sel = soggetto["portafoglio"]
+        st.session_state.richiesta = {
+            "cf": cf,
+            "portafoglio": portafoglio_sel,
+            "ndg_debitore": soggetto["ndg"],
+            "nominativo_posizione": soggetto["intestazione"],
+            "ndg_nominativo_ricercato": soggetto["ndgSoggetto"],
+            "nominativo_ricerca": soggetto["nomeCompleto"]
+        }
+        st.success("Dati inseriti correttamente.")
+        st.session_state["active_tab"] = 1
+        for key in ["cf_ok", "soggetti_cf", "portafogli", "portafoglio_sel", "ndg_sel", "cf_salvato"]:
+            st.session_state.pop(key, None)
+        st.rerun()

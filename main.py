@@ -60,12 +60,14 @@ def get_files_from_sharepoint():
     utenza = nav.download_file(site_id, drive_id, f"{FOLDER_PATH}/utenza.xlsx")
     dt_soggetti_data = nav_dt.download_file(site_id_dt, drive_id_dt, f"{DT_FOLDER_PATH}/dt_soggetti.parquet")
     dt_data = nav_dt.download_file(site_id_dt, drive_id_dt, f"{DT_FOLDER_PATH}/dt.parquet")
+    dt_performance_data = nav_dt.download_file(site_id_dt, drive_id_dt, f"{DT_FOLDER_PATH}/performance.parquet")
 
     df_utenza = pd.read_excel(io.BytesIO(utenza["content"]))
     df = pd.read_parquet(io.BytesIO(prenotazioni_data['content']))
     df_soggetti = pd.read_parquet(io.BytesIO(soggetti_data['content']))
     df_dt = pd.read_parquet(io.BytesIO(dt_data['content']))
     dt_soggetti = pd.read_parquet(io.BytesIO(dt_soggetti_data['content']))
+    dt_performance = pd.read_parquet(io.BytesIO(dt_performance_data['content']))
         
     if 'id' not in df.columns:
         df['id'] = range(1, len(df) + 1)
@@ -73,7 +75,7 @@ def get_files_from_sharepoint():
     if 'id' not in df_dt.columns:
         df_dt['id'] = range(1, len(df_dt) + 1)
     
-    return df, df_soggetti, df_utenza, df_dt, dt_soggetti
+    return df, df_soggetti, df_utenza, df_dt, dt_soggetti, dt_performance
 
 def get_navigator():
     nav = SharePointNavigator(
@@ -100,7 +102,7 @@ def get_navigator_dt():
     return nav_dt
 
 def initialize_data():
-    df, df_soggetti, df_utenza, df_dt, dt_soggetti = get_files_from_sharepoint()
+    df, df_soggetti, df_utenza, df_dt, dt_soggetti, dt_performance= get_files_from_sharepoint()
     df = prepare_data(df)
     
     df["id"] = range(1, len(df) + 1)
@@ -141,6 +143,7 @@ def initialize_data():
     st.session_state['dt_soggetti'] = dt_soggetti
     st.session_state['navigator'] = get_navigator()
     st.session_state['navigator_dt'] = get_navigator_dt()
+    st.session_state['dt_performance'] = dt_performance
 
 def main():
     if 'df_full' not in st.session_state:

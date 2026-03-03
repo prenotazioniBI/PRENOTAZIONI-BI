@@ -329,3 +329,205 @@ def aggrid_spesa_per_portafoglio(df, group_col="PORTAFOGLIO", value_col="COSTO",
         theme="streamlit"
     )
     return agg
+
+
+
+# def gauge_spesa_gestore(
+#     df: pd.DataFrame,
+#     gestore_loggato: str,
+#     anno: int = 2025,
+#     value_col: str = "COSTO",
+#     height: int = 420,
+# ):
+#     """
+#     Mostra un Gauge Chart Plotly che confronta la spesa totale del gestore
+#     loggato rispetto alla media dei gestori.
+
+#     Parameters
+#     ----------
+#     df               : DataFrame grezzo (stessa struttura usata nel resto dell'app)
+#     gestore_loggato  : Nome del gestore attualmente loggato (già normalizzato
+#                        oppure presente in MAPPA_GESTORI)
+#     anno             : Anno su cui filtrare (default 2025)
+#     value_col        : Colonna numerica da sommare (default "COSTO")
+#     height           : Altezza del grafico in pixel
+#     """
+
+#     # --- Normalizza il nome del gestore loggato ---
+#     gestore_norm = MAPPA_GESTORI.get(gestore_loggato, gestore_loggato).strip()
+
+#     # --- Prepara dati ---
+#     dfc = _prepara_df(df, anno=anno)
+
+#     if dfc.empty:
+#         st.warning(f"Nessun dato disponibile per l'anno {anno}.")
+#         return
+
+#     spesa_per_gestore = (
+#         dfc.groupby("GESTORE")[value_col]
+#         .sum()
+#         .reset_index()
+#         .rename(columns={value_col: "SPESA_TOTALE"})
+#     )
+#     spesa_per_gestore["SPESA_TOTALE"] = spesa_per_gestore["SPESA_TOTALE"].round(2)
+
+#     # --- Valori chiave ---
+#     media_gestori = spesa_per_gestore["SPESA_TOTALE"].mean()
+#     max_spesa = spesa_per_gestore["SPESA_TOTALE"].max()
+
+#     riga_gestore = spesa_per_gestore[spesa_per_gestore["GESTORE"] == gestore_norm]
+#     if riga_gestore.empty:
+#         st.error(
+#             f"Gestore **{gestore_norm}** non trovato nei dati {anno}. "
+#             f"Gestori disponibili: {', '.join(sorted(spesa_per_gestore['GESTORE'].tolist()))}"
+#         )
+#         return
+
+#     spesa_gestore = float(riga_gestore["SPESA_TOTALE"].iloc[0])
+#     n_gestori = len(spesa_per_gestore)
+
+#     # Percentile rank (0–100) del gestore rispetto agli altri
+#     percentile = float(
+#         (spesa_per_gestore["SPESA_TOTALE"] <= spesa_gestore).mean() * 100
+#     )
+
+#     # Delta vs media
+#     delta = spesa_gestore - media_gestori
+#     delta_pct = (delta / media_gestori * 100) if media_gestori > 0 else 0
+
+#     # --- Soglie gauge (range 0 → max * 1.1 per respiro visivo) ---
+#     gauge_max = max(max_spesa * 1.15, spesa_gestore * 1.2, 1.0)
+
+#     # Zone colore: verde sotto media, giallo vicino, rosso oltre
+#     zona_verde = media_gestori * 0.85
+#     zona_gialla = media_gestori * 1.15
+
+#     # ------------------------------------------------------------------ #
+#     #  GAUGE CHART                                                         #
+#     # ------------------------------------------------------------------ #
+#     fig = go.Figure()
+
+#     fig.add_trace(go.Indicator(
+#         mode="gauge+number+delta",
+#         value=spesa_gestore,
+#         delta={
+#             "reference": media_gestori,
+#             "increasing": {"color": "#e05c4b"},   # sopra media → rosso (spende di più)
+#             "decreasing": {"color": "#4caf87"},   # sotto media → verde
+#             "valueformat": ".2f",
+#             "prefix": "vs media  ",
+#             "suffix": " €",
+#         },
+#         number={
+#             "suffix": " €",
+#             "font": {"size": 38, "color": "#f0ece4", "family": "Georgia, serif"},
+#             "valueformat": ",.2f",
+#         },
+#         gauge={
+#             "axis": {
+#                 "range": [0, gauge_max],
+#                 "tickwidth": 1,
+#                 "tickcolor": "#8c8070",
+#                 "tickformat": ",.0f",
+#                 "tickfont": {"color": "#9e9080", "size": 10},
+#                 "nticks": 6,
+#             },
+#             "bar": {"color": "#b9836f", "thickness": 0.28},
+#             "bgcolor": "#1e1a16",
+#             "borderwidth": 0,
+#             "steps": [
+#                 {"range": [0, zona_verde],        "color": "#1d2d22"},   # verde scuro
+#                 {"range": [zona_verde, zona_gialla], "color": "#2d2a15"},  # giallo scuro
+#                 {"range": [zona_gialla, gauge_max],  "color": "#2d1a18"},  # rosso scuro
+#             ],
+#             "threshold": {
+#                 "line": {"color": "#f5c842", "width": 3},
+#                 "thickness": 0.85,
+#                 "value": media_gestori,
+#             },
+#         },
+#         title={
+#             "text": (
+#                 f"<b>{gestore_norm}</b><br>"
+#                 f"<span style='font-size:13px;color:#9e9080'>"
+#                 f"Spesa {anno}  ·  {n_gestori} gestori  ·  "
+#                 f"Percentile {percentile:.0f}°</span>"
+#             ),
+#             "font": {"size": 18, "color": "#f0ece4", "family": "Georgia, serif"},
+#             "align": "center",
+#         },
+#         domain={"x": [0, 1], "y": [0, 1]},
+#     ))
+
+#     # Annotazione media (linea gialla)
+#     fig.add_annotation(
+#         x=0.5, y=0.08,
+#         xref="paper", yref="paper",
+#         text=(
+#             f"<span style='color:#f5c842'>▬</span>  Media gestori: "
+#             f"<b style='color:#f5c842'>{media_gestori:,.2f} €</b>"
+#         ),
+#         showarrow=False,
+#         font={"size": 12, "color": "#c0b09a", "family": "Georgia, serif"},
+#         align="center",
+#         bgcolor="rgba(0,0,0,0)",
+#     )
+
+#     fig.update_layout(
+#         paper_bgcolor="#13100d",
+#         plot_bgcolor="#13100d",
+#         margin={"t": 80, "b": 60, "l": 30, "r": 30},
+#         height=height,
+#         font={"family": "Georgia, serif"},
+#     )
+
+#     st.markdown(
+#         """
+#         <style>
+#         .gauge-header {
+#             font-family: 'Georgia', serif;
+#             font-size: 11px;
+#             letter-spacing: 3px;
+#             text-transform: uppercase;
+#             color: #8c7a68;
+#             margin-bottom: 4px;
+#         }
+#         .gauge-card {
+#             background: #13100d;
+#             border: 1px solid #2e2620;
+#             border-radius: 12px;
+#             padding: 18px 24px 10px;
+#         }
+#         </style>
+#         """,
+#         unsafe_allow_html=True,
+#     )
+
+#     with st.container():
+#         st.markdown('<div class="gauge-header">Performance di spesa · Investigazioni 2025</div>', unsafe_allow_html=True)
+#         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+#         # KPI pills sotto il gauge
+#         col1, col2, col3 = st.columns(3)
+#         delta_color = "#e05c4b" if delta > 0 else "#4caf87"
+#         delta_icon  = "▲" if delta > 0 else "▼"
+
+#         col1.metric(
+#             label="Spesa personale",
+#             value=f"€ {spesa_gestore:,.2f}",
+#         )
+#         col2.metric(
+#             label="Media gestori",
+#             value=f"€ {media_gestori:,.2f}",
+#         )
+#         col3.metric(
+#             label="Scostamento",
+#             value=f"{delta_icon} € {abs(delta):,.2f}",
+#             delta=f"{delta_pct:+.1f}% vs media",
+#             delta_color="inverse",   # rosso se positivo (spende di più)
+#         )
+
+#     return fig
+
+
+

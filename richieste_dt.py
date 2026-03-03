@@ -24,7 +24,6 @@ def banner_richiesta_utente_dt(dt_soggetti):
                 st.warning("CODICE FISCALE o P.IVA OBBLIGATORIO")
                 st.stop()
 
-            # Validazione rapida
             cf_len = len(cf.replace(" ", ""))
             if cf_len == 16:
                 cf_clean = codicefiscale.compact(cf)
@@ -43,7 +42,6 @@ def banner_richiesta_utente_dt(dt_soggetti):
                 st.error(f"{tipo_documento} non valido: '{cf}'")
                 st.stop()
 
-            # Ricerca soggetto (ottimizzata con upper() una sola volta)
             cf_upper = cf_clean.upper()
             soggetti_cf = dt_soggetti[dt_soggetti["codiceFiscale"].str.upper() == cf_upper]
             
@@ -51,7 +49,6 @@ def banner_richiesta_utente_dt(dt_soggetti):
                 st.error("Soggetto non trovato nel database")
                 st.stop()
             
-            # Check deceduto
             user_ruolo = st.session_state.get("user", {}).get("ruolo", "")
             if "deceduto" in soggetti_cf.columns and (soggetti_cf["deceduto"] == "DECEDUTO").any():
                 if user_ruolo not in ["admin", "team leader"]:
@@ -60,13 +57,12 @@ def banner_richiesta_utente_dt(dt_soggetti):
                 else:
                     st.warning("Attenzione: soggetto risulta deceduto (autorizzato per il tuo ruolo)")
             
-            # Salva e procedi
             st.session_state.soggetti_cf_data = soggetti_cf.to_dict('records')
             st.session_state.cf_validato = cf_clean
             st.session_state.cf_validato_flag = True
             st.rerun()
 
-    # FASE 2: Selezione portafoglio e rapporti
+    # FASE 2 in poi
     else:
         soggetti_cf_data = st.session_state.get("soggetti_cf_data")
         if not soggetti_cf_data:
@@ -77,7 +73,9 @@ def banner_richiesta_utente_dt(dt_soggetti):
         soggetti_cf = pd.DataFrame(soggetti_cf_data)
         st.success(f"CF validato: **{st.session_state.cf_validato}**")
         
-        # Gestione portafogli multipli
+        # ------------------------------------------------------------------ #
+        # FASE 2a: Selezione portafoglio (se multipli)
+        # ------------------------------------------------------------------ #
         portafogli_unici = soggetti_cf['portafoglio'].unique()
         
         if len(portafogli_unici) > 1:
@@ -86,7 +84,6 @@ def banner_richiesta_utente_dt(dt_soggetti):
             if "portafoglio_selezionato" not in st.session_state:
                 st.write("**Seleziona il portafoglio:**")
                 
-                # Calcolo aggregato ottimizzato
                 portafoglio_options = []
                 for i, portafoglio in enumerate(portafogli_unici):
                     records_pf = soggetti_cf[soggetti_cf['portafoglio'] == portafoglio]
@@ -106,30 +103,84 @@ def banner_richiesta_utente_dt(dt_soggetti):
                     selected_pf = portafoglio_options[selected_index]['portafoglio']
                     st.session_state.portafoglio_selezionato = selected_pf
                     records_filtrati = soggetti_cf[soggetti_cf['portafoglio'] == selected_pf]
+                    # Salva snapshot pre-filtro NDG per poter tornare indietro
                     st.session_state.soggetti_cf_filtrati_data = records_filtrati.to_dict('records')
+                    st.session_state.soggetti_cf_data = records_filtrati.to_dict('records')
                     st.rerun()
                 st.stop()
             else:
-                # Portafoglio già selezionato
-                soggetti_cf_filtrati_data = st.session_state.get("soggetti_cf_filtrati_data")
-                if not soggetti_cf_filtrati_data:
-                    st.session_state.pop("portafoglio_selezionato", None)
-                    st.rerun()
-                    st.stop()
-                
-                soggetti_cf = pd.DataFrame(soggetti_cf_filtrati_data)
+                soggetti_cf = pd.DataFrame(st.session_state.get(
+                    "soggetti_cf_filtrati_data", soggetti_cf_data
+                ))
                 st.info(f"Portafoglio selezionato: **{st.session_state.portafoglio_selezionato}**")
                 
-                col1, col2 = st.columns([1, 4])
+                col1, _ = st.columns([1, 4])
                 with col1:
                     if st.button("Cambia Portafoglio"):
-                        st.session_state.pop("portafoglio_selezionato", None)
-                        st.session_state.pop("soggetti_cf_filtrati_data", None)
+                        for k in ["portafoglio_selezionato", "soggetti_cf_filtrati_data", "ndg_selezionato"]:
+                            st.session_state.pop(k, None)
                         st.rerun()
-        
+
+        # ------------------------------------------------------------------ #
+        # FASE 2b: Selezione NDG se stesso CF ha più NDG (portafoglio uguale)
+        # ------------------------------------------------------------------ #
+        ndg_unici = soggetti_cf['ndg'].unique() if 'ndg' in soggetti_cf.columns else []
+
+        if len(ndg_unici) > 1:
+            if "ndg_selezionato" not in st.session_state:
+                st.warning(
+                    f"Il codice fiscale è associato a **{len(ndg_unici)} posizioni diverse** "
+                    "nello stesso portafoglio. Seleziona quella di interesse:"
+                )
+
+                ndg_options = []
+                for ndg in ndg_unici:
+                    records_ndg = soggetti_cf[soggetti_cf['ndg'] == ndg]
+                    intestazione = records_ndg.iloc[0].get('intestazione', 'N/A')
+                    gbv = records_ndg['gbvAttuale'].sum()
+                    ndg_options.append({
+                        'ndg': str(ndg),
+                        'display': f"{intestazione} — NDG: {ndg} — GBV: {gbv:,.2f}€"
+                    })
+
+                ndg_selezionato = st.selectbox(
+                    "Posizioni disponibili:",
+                    options=[o['ndg'] for o in ndg_options],
+                    format_func=lambda x: next(o['display'] for o in ndg_options if o['ndg'] == x)
+                )
+
+                if st.button("Conferma Posizione"):
+                    st.session_state.ndg_selezionato = ndg_selezionato
+                    records_ndg_filtrati = soggetti_cf[
+                        soggetti_cf['ndg'].astype(str) == ndg_selezionato
+                    ]
+                    st.session_state.soggetti_cf_data = records_ndg_filtrati.to_dict('records')
+                    st.rerun()
+                st.stop()
+
+            else:
+                # NDG già scelto — usa il df già filtrato in soggetti_cf_data
+                soggetti_cf = pd.DataFrame(st.session_state.soggetti_cf_data)
+                ndg_sel = st.session_state.ndg_selezionato
+                intestazione_sel = soggetti_cf.iloc[0].get('intestazione', ndg_sel)
+                st.info(f"Posizione selezionata: **{intestazione_sel}** (NDG: {ndg_sel})")
+
+                col1, _ = st.columns([1, 4])
+                with col1:
+                    if st.button("Cambia Posizione"):
+                        st.session_state.pop("ndg_selezionato", None)
+                        # Ripristina snapshot pre-filtro NDG
+                        ripristino = st.session_state.get(
+                            "soggetti_cf_filtrati_data",
+                            st.session_state.get("soggetti_cf_data")
+                        )
+                        st.session_state.soggetti_cf_data = ripristino
+                        st.rerun()
+
+        # ------------------------------------------------------------------ #
         # FASE 3: Selezione rapporti
+        # ------------------------------------------------------------------ #
         if len(soggetti_cf) > 1:
-            # Deduplica rapporti ottimizzata
             records_unici = []
             seen = set()
             
@@ -205,9 +256,10 @@ def banner_richiesta_utente_dt(dt_soggetti):
                 
                 st.success(f"Dati confermati! Rapporti: {len(rapporti_selezionati) if 'rapporti_selezionati' in locals() else 1}")
 
-                # Pulizia session state
-                for key in ["cf_validato", "cf_validato_flag", "soggetti_cf_data", 
-                           "portafoglio_selezionato", "soggetti_cf_filtrati_data"]:
+                # Pulizia completa session state
+                for key in ["cf_validato", "cf_validato_flag", "soggetti_cf_data",
+                            "portafoglio_selezionato", "soggetti_cf_filtrati_data",
+                            "ndg_selezionato"]:
                     st.session_state.pop(key, None)
                 
                 st.rerun()
