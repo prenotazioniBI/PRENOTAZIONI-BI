@@ -69,12 +69,12 @@ def main(**kwargs):
         df["GESTORE"] = df["GESTORE"].replace(mappa_gestori)
 
     gauge_spesa_gestore(df, gestore_loggato=username)
-    chart_richieste_incasso(
-        dt_performance,
-        gestore_loggato=username,
-        anno=2025,
-        mappa_gestori=mappa_gestori,
-    )
+    # chart_richieste_incasso(
+    #     dt_performance,
+    #     gestore_loggato=username,
+    #     anno=2025,
+    #     mappa_gestori=mappa_gestori,
+    # )
 
 
 
