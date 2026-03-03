@@ -2,7 +2,7 @@ import streamlit as st
 from grafici_utente import Grafici
 from grafici import aggrid_spesa_per_portafoglio
 from gauge_gestore import gauge_spesa_gestore
-from gauge_richieste_gestore import chart_richieste_incasso
+# from gauge_richieste_gestore import grafico_ndg_senza_processo
 
 
 def main(**kwargs):
@@ -49,7 +49,7 @@ def main(**kwargs):
         "Rita Maria Noto ": "Rita Maria Noto",
         "Rita Noto": "Rita Maria Noto",
         "Ritamaria Noto": "Rita Maria Noto",
-        "Mariagiulia Berardi": "Maria Giulia Berardi",
+        "Mariagiulia Berardi": "Mariagiulia Berardi",
         "Rita maria Noto": "Rita Maria Noto",
         "Ruscelli lisa": "Ruscelli Lisa",
         "Tiziana Alibrandi ": "Tiziana Alibrandi",
@@ -64,14 +64,14 @@ def main(**kwargs):
         df["GESTORE"] = df["GESTORE"].replace(mappa_gestori)
 
     gauge_spesa_gestore(df, gestore_loggato=username)
-    # chart_richieste_incasso(
-    #     dt_performance,
-    #     gestore_loggato=username,
-    #     anno=2025,
-    #     mappa_gestori=mappa_gestori,
+
+
+    
+    # grafico_ndg_senza_processo(
+    #     st.session_state["df_full"],
+    #     st.session_state["dt_performance"],
+    #     st.session_state["df_dt"]   # bridge consigliato
     # )
-
-
 
 if __name__ == "__main__":
     st.info("Questa pagina va aperta dal flusso principale dell'app.")
