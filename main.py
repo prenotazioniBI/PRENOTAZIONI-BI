@@ -60,7 +60,7 @@ def get_files_from_sharepoint():
     utenza = nav.download_file(site_id, drive_id, f"{FOLDER_PATH}/utenza.xlsx")
     dt_soggetti_data = nav_dt.download_file(site_id_dt, drive_id_dt, f"{DT_FOLDER_PATH}/dt_soggetti.parquet")
     dt_data = nav_dt.download_file(site_id_dt, drive_id_dt, f"{DT_FOLDER_PATH}/dt.parquet")
-    dt_performance_data = nav_dt.download_file(site_id_dt, drive_id_dt, f"{DT_FOLDER_PATH}/performance.parquet")
+    dt_performance_data = nav_dt.download_file(site_id_dt, drive_id_dt, f"{DT_FOLDER_PATH}/GestoriRichieste.parquet")
 
     df_utenza = pd.read_excel(io.BytesIO(utenza["content"]))
     df = pd.read_parquet(io.BytesIO(prenotazioni_data['content']))

@@ -1,9 +1,9 @@
 import streamlit as st
 from grafici_utente import Grafici
-from grafici import aggrid_spesa_per_portafoglio
 from gauge_gestore import gauge_spesa_gestore
-# from gauge_richieste_gestore import grafico_ndg_senza_processo
-
+from gauge_richieste_gestore import  matrice_incassi_post_bi
+from graficoPerformance import grafico_conversione_bi
+import pandas as pd
 
 def main(**kwargs):
     st.title("Analisi delle tue Richieste")
@@ -14,64 +14,19 @@ def main(**kwargs):
     dt_performance = kwargs.get("dt_performance") or st.session_state.get("dt_performance")
 
     username = user.get("username")
-
-
-    if df is None or dt_performance is None or not username:
-        st.warning("Dati mancanti.")
-        st.stop()
-
-
-    if dt_performance is None:
-        st.warning("dt_performance non disponibile.")
-        st.stop()
-
-    if not username:
-        st.warning("Utente non disponibile.")
-        st.stop()
-
-    # Copie locali sicure
-    df = df.copy()
-    dt_performance = dt_performance.copy()
-
-    mappa_gestori = {
-        "ANTONELLA COCCO": "Antonella cocco",
-        "BEATRICE LAORENZA": "Beatrice Laorenza",
-        "Bacchetta ": "Carlo Bacchetta",
-        "DANIELA RIZZI": "Daniela Rizzi",
-        "FINGEST CREDIT": "Fingest Group",
-        "GIUSEPPE NIGRA": "Giuseppe Nigra",
-        "LAMYAA HAKIM": "Lamyaa Hakim",
-        "MATTEO CATARZI": "Matteo Catarzi",
-        "Magnifico Gelsomina ": "Gelsomina Magnifico",
-        "Mauro Gualtiero ": "Mauro Gualtiero",
-        "Michele  Oranger": "Michele Oranger",
-        "RITA NOTO": "Rita Maria Noto",
-        "Rita Maria Noto ": "Rita Maria Noto",
-        "Rita Noto": "Rita Maria Noto",
-        "Ritamaria Noto": "Rita Maria Noto",
-        "Mariagiulia Berardi": "Mariagiulia Berardi",
-        "Rita maria Noto": "Rita Maria Noto",
-        "Ruscelli lisa": "Ruscelli Lisa",
-        "Tiziana Alibrandi ": "Tiziana Alibrandi",
-        "VALENTINA BARTOLO": "Valentina Bartolo",
-        "VALERIA NAPOLEONE": "Valeria Napoleone",
-        "carmela lanciano": "Carmela Lanciano",
-        "silvia stefanelli": "Silvia Stefanelli",
-        " AGECREDIT": "AGECREDIT",
-    }
-
-    if "GESTORE" in df.columns:
-        df["GESTORE"] = df["GESTORE"].replace(mappa_gestori)
+    username_norm = " ".join(reversed(username.strip().upper().split()))
 
     gauge_spesa_gestore(df, gestore_loggato=username)
-
-
+    dt_performance["assetManager_norm"] = (
+        dt_performance["assetManager"]
+        .str.strip()
+        .str.upper()
+    )
+    st.divider()
+    grafico_conversione_bi(df, dt_performance, username=username_norm)
     
-    # grafico_ndg_senza_processo(
-    #     st.session_state["df_full"],
-    #     st.session_state["dt_performance"],
-    #     st.session_state["df_dt"]   # bridge consigliato
-    # )
+    st.divider()
+    matrice_incassi_post_bi(dt_performance, username=username_norm)
 
 if __name__ == "__main__":
     st.info("Questa pagina va aperta dal flusso principale dell'app.")

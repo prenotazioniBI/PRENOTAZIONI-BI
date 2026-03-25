@@ -543,7 +543,7 @@ def conferma_invio_richiesta(servizi_scelti, df_dt, navigator_dt, menu_utente_dt
 
             if "Telegramma" in servizi_scelti: 
                 st.session_state["richiesta"].update({
-                    "tipo_invio_telegramma": "RACCOMANDATA",
+                    "tipo_invio_telegramma": "Telegramma",
                     "indirizzo_telegramma": st.session_state.get("indirizzo_telegramma", "").strip(),
                     "comune_telegramma": st.session_state.get("comune_telegramma", "").strip(),
                     "provincia_telegramma": st.session_state.get("provincia_telegramma", "").strip(),

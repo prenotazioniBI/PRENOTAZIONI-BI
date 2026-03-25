@@ -4,9 +4,6 @@ import numpy as np
 import plotly.graph_objects as go
 
 
-# ---------------------------------------------------------------------------
-# Mappatura gestori (stessa che hai nel resto dell'app)
-# ---------------------------------------------------------------------------
 MAPPA_GESTORI = {
     "ANTONELLA COCCO": "Antonella Cocco",
     "Antonella cocco": "Antonella Cocco",
@@ -53,9 +50,6 @@ MAPPA_SERVIZI = {
 }
 
 
-# ---------------------------------------------------------------------------
-# Helper: prepara il dataframe normalizzato
-# ---------------------------------------------------------------------------
 def _prepara_df(df: pd.DataFrame, anno: int = 2025) -> pd.DataFrame:
     dfc = df.copy()
 
@@ -74,10 +68,6 @@ def _prepara_df(df: pd.DataFrame, anno: int = 2025) -> pd.DataFrame:
     dfc["COSTO"] = pd.to_numeric(dfc.get("COSTO", 0), errors="coerce").fillna(0.0)
     return dfc
 
-
-# ---------------------------------------------------------------------------
-# Funzione principale: Gauge Chart spesa gestore loggato vs media
-# ---------------------------------------------------------------------------
 def gauge_spesa_gestore(
     df: pd.DataFrame,
     gestore_loggato: str,
@@ -85,24 +75,10 @@ def gauge_spesa_gestore(
     value_col: str = "COSTO",
     height: int = 420,
 ):
-    """
-    Mostra un Gauge Chart Plotly che confronta la spesa totale del gestore
-    loggato rispetto alla media dei gestori.
 
-    Parameters
-    ----------
-    df               : DataFrame grezzo (stessa struttura usata nel resto dell'app)
-    gestore_loggato  : Nome del gestore attualmente loggato (già normalizzato
-                       oppure presente in MAPPA_GESTORI)
-    anno             : Anno su cui filtrare (default 2025)
-    value_col        : Colonna numerica da sommare (default "COSTO")
-    height           : Altezza del grafico in pixel
-    """
 
-    # --- Normalizza il nome del gestore loggato ---
     gestore_norm = MAPPA_GESTORI.get(gestore_loggato, gestore_loggato).strip()
 
-    # --- Prepara dati ---
     dfc = _prepara_df(df, anno=anno)
 
     if dfc.empty:
@@ -117,7 +93,6 @@ def gauge_spesa_gestore(
     )
     spesa_per_gestore["SPESA_TOTALE"] = spesa_per_gestore["SPESA_TOTALE"].round(2)
 
-    # --- Valori chiave ---
     media_gestori = spesa_per_gestore["SPESA_TOTALE"].mean()
     max_spesa = spesa_per_gestore["SPESA_TOTALE"].max()
 
@@ -132,50 +107,38 @@ def gauge_spesa_gestore(
     spesa_gestore = float(riga_gestore["SPESA_TOTALE"].iloc[0])
     n_gestori = len(spesa_per_gestore)
 
-    # Percentile rank (0–100) del gestore rispetto agli altri
     percentile = float(
         (spesa_per_gestore["SPESA_TOTALE"] <= spesa_gestore).mean() * 100
     )
 
-    # Delta vs media
+
     delta = spesa_gestore - media_gestori
     delta_pct = (delta / media_gestori * 100) if media_gestori > 0 else 0
 
-    # --- Soglie gauge (range 0 → max * 1.1 per respiro visivo) ---
     gauge_max = max(max_spesa * 1.15, spesa_gestore * 1.2, 1.0)
 
-    # Zone colore: verde sotto media, giallo vicino, rosso oltre
     zona_verde = media_gestori * 0.85
     zona_gialla = media_gestori * 1.15
 
-    # ------------------------------------------------------------------ #
-    #  Palette — allineata al tema Streamlit (.toml)                       #
-    #  primaryColor   = #bb5a38  (terracotta)                              #
-    #  background     = #f4f3ed  (avorio)                                  #
-    #  secondaryBg    = #ecebe3  (avorio scuro)                            #
-    #  textColor      = #3d3a2a  (marrone scuro)                           #
-    #  verde abbinato = #4a7c59  (salvia bosco)                            #
-    # ------------------------------------------------------------------ #
+   
 
-    C_BG          = "#f4f3ed"   # avorio — sfondo carta
-    C_BG2         = "#ecebe3"   # avorio scuro — fasce gauge
-    C_BORDER      = "#d3d2ca"   # bordo tema
-    C_TEXT        = "#3d3a2a"   # testo principale
-    C_TEXT_MUTED  = "#8a8775"   # testo secondario
-    C_PRIMARY     = "#bb5a38"   # terracotta — ago gauge
-    C_GREEN       = "#4a7c59"   # salvia bosco — zona virtuosa
-    C_GREEN_LIGHT = "#d6e8dc"   # verde chiarissimo — fill zona verde
-    C_AMBER       = "#c9962a"   # ambra — linea media / zona gialla
-    C_AMBER_LIGHT = "#f2e8cc"   # ambra chiara — fill zona gialla
-    C_RED_LIGHT   = "#f5dbd4"   # rosso/terracotta chiaro — fill zona rossa
+    C_BG          = "#f4f3ed"   
+    C_BG2         = "#ecebe3"   
+    C_BORDER      = "#d3d2ca"   
+    C_TEXT        = "#3d3a2a"   
+    C_TEXT_MUTED  = "#8a8775"   
+    C_PRIMARY     = "#bb5a38"   
+    C_GREEN       = "#4a7c59"   
+    C_GREEN_LIGHT = "#d6e8dc"   
+    C_AMBER       = "#c9962a"   
+    C_AMBER_LIGHT = "#f2e8cc"   
+    C_RED_LIGHT   = "#f5dbd4"  
 
-    # ------------------------------------------------------------------ #
-    #  GAUGE CHART — numero e delta separati per evitare sovrapposizioni   #
-    # ------------------------------------------------------------------ #
+
     fig = go.Figure()
 
     fig.add_trace(go.Indicator(
-        mode="gauge+number",        # NO delta inline — lo gestiamo noi
+        mode="gauge+number",      
         value=spesa_gestore,
         number={
             "suffix": " €",
@@ -210,12 +173,12 @@ def gauge_spesa_gestore(
         domain={"x": [0.05, 0.95], "y": [0, 1]},
     ))
 
-    # --- Annotazioni tutte con y ben distanziate ---
+
     delta_color  = C_PRIMARY if delta > 0 else C_GREEN
     delta_icon   = "▲" if delta > 0 else "▼"
     delta_str    = f"{delta_icon} {abs(delta):,.2f} € ({delta_pct:+.1f}%)"
 
-    # Nome gestore — sopra il centro del gauge
+
     fig.add_annotation(
         x=0.5, y=1.25, xref="paper", yref="paper",
         text=f"<b>{gestore_norm}</b>",
@@ -223,7 +186,7 @@ def gauge_spesa_gestore(
         font={"size": 20, "color": C_TEXT, "family": "Styrene B, Georgia, serif"},
         align="center", yanchor="top",
     )
-    # Sottotitolo info
+
     fig.add_annotation(
         x=0.5, y=1.15, xref="paper", yref="paper",
         text=f"Spesa {anno}  ·  {n_gestori} gestori  ·  Percentile {percentile:.0f}°",
@@ -231,7 +194,7 @@ def gauge_spesa_gestore(
         font={"size": 12, "color": C_TEXT_MUTED, "family": "Styrene B, Georgia, serif"},
         align="center", yanchor="top",
     )
-    # Delta vs media — sotto il numero, ben separato
+
     fig.add_annotation(
         x=0.5, y=-0.08, xref="paper", yref="paper",
         text=f"<b style='color:{delta_color}'>{delta_str}</b> vs media",
@@ -239,7 +202,7 @@ def gauge_spesa_gestore(
         font={"size": 13, "color": C_TEXT_MUTED, "family": "Styrene B, Georgia, serif"},
         align="center", yanchor="top",
     )
-    # Linea media
+
     fig.add_annotation(
         x=0.5, y=-0.20, xref="paper", yref="paper",
         text=(
@@ -259,9 +222,7 @@ def gauge_spesa_gestore(
         font={"family": "Styrene B, Georgia, serif", "color": C_TEXT},
     )
 
-    # ------------------------------------------------------------------ #
-    #  RENDER IN STREAMLIT                                                 #
-    # ------------------------------------------------------------------ #
+
     st.markdown(
         f"""
         <style>
@@ -293,7 +254,6 @@ def gauge_spesa_gestore(
         )
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-        # KPI centrati sotto il gauge
         delta_icon = "▲" if delta > 0 else "▼"
         _, c1, c2, c3, _ = st.columns([3, 2, 2, 2, 2])
 

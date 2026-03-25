@@ -5,8 +5,6 @@ import requests
 from urllib.parse import quote
 from filtro_df import mostra_df_filtrato_home_admin_dt
 
-
-
 def salva_richiesta_utente_dt(df_dt, servizi_scelti, navigator_dt, cf=None, portafoglio=None, ndg_debitore=None, 
                              nominativo_posizione=None, ndg_nominativo_ricercato=None,
                              nominativo_ricerca=None, rapporto=None, gbvAttuale=None,
@@ -42,12 +40,20 @@ def salva_richiesta_utente_dt(df_dt, servizi_scelti, navigator_dt, cf=None, port
                 ndg_nominativo_ricercato = str(ndg_nominativo_ricercato).strip()
         else:
             ndg_nominativo_ricercato = ""
-        
+
+
+        is_telegramma = "Telegramma" in servizi_scelti
         data_richiesta = pd.Timestamp.now()
-        modalita_invio = "PEC" if pec else "RACCOMANDATA"
+        
+        if is_telegramma:
+            modalita_invio = "TELEGRAMMA"
+        elif pec and str(pec).strip():
+            modalita_invio = "PEC"
+        else:
+            modalita_invio = "RACCOMANDATA"
         tipologia_documento = ", ".join(servizi_scelti) if isinstance(servizi_scelti, list) else servizi_scelti
         
-        is_telegramma = "Telegramma" in servizi_scelti
+        
         
  
         
