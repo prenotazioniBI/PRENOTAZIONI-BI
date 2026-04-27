@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import io
+from concurrent.futures import ThreadPoolExecutor
 from sharepoint_utils import SharePointNavigator
 from app import MultiApp
 
@@ -31,36 +32,32 @@ def prepare_data(df):
 
 @st.cache_data(show_spinner="Scarico dati da Sharepoint...")
 def get_files_from_sharepoint():
-    nav = SharePointNavigator(
-        SITE_URL,
-        TENANT_ID,
-        CLIENT_ID,
-        CLIENT_SECRET,
-        LIBRARY_NAME,
-        FOLDER_PATH,
-    )
-    nav.login()
-    site_id = nav.get_site_id()
-    drive_id, _ = nav.get_drive_id(site_id)
-    
-    nav_dt = SharePointNavigator(
-        SITE_URL,
-        TENANT_ID,
-        CLIENT_ID,
-        CLIENT_SECRET,
-        LIBRARY_NAME,
-        DT_FOLDER_PATH  
-    )
-    nav_dt.login()
-    site_id_dt = nav_dt.get_site_id()
-    drive_id_dt, _ = nav_dt.get_drive_id(site_id_dt)
+    def init_navigator(folder):
+        n = SharePointNavigator(SITE_URL, TENANT_ID, CLIENT_ID, CLIENT_SECRET, LIBRARY_NAME, folder)
+        n.login()
+        sid = n.get_site_id()
+        did, _ = n.get_drive_id(sid)
+        return n, sid, did
 
-    prenotazioni_data = nav.download_file(site_id, drive_id, f"{FOLDER_PATH}/prenotazioni.parquet")
-    soggetti_data = nav.download_file(site_id, drive_id, f"{FOLDER_PATH}/soggetti.parquet")
-    utenza = nav.download_file(site_id, drive_id, f"{FOLDER_PATH}/utenza.xlsx")
-    dt_soggetti_data = nav_dt.download_file(site_id_dt, drive_id_dt, f"{DT_FOLDER_PATH}/dt_soggetti.parquet")
-    dt_data = nav_dt.download_file(site_id_dt, drive_id_dt, f"{DT_FOLDER_PATH}/dt.parquet")
-    dt_performance_data = nav_dt.download_file(site_id_dt, drive_id_dt, f"{DT_FOLDER_PATH}/GestoriRichieste.parquet")
+    with ThreadPoolExecutor(max_workers=2) as ex:
+        f_nav = ex.submit(init_navigator, FOLDER_PATH)
+        f_nav_dt = ex.submit(init_navigator, DT_FOLDER_PATH)
+        nav, site_id, drive_id = f_nav.result()
+        nav_dt, site_id_dt, drive_id_dt = f_nav_dt.result()
+
+    def dl(n, sid, did, path):
+        return n.download_file(sid, did, path)
+
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        futures = [
+            ex.submit(dl, nav,    site_id,    drive_id,    f"{FOLDER_PATH}/prenotazioni.parquet"),
+            ex.submit(dl, nav,    site_id,    drive_id,    f"{FOLDER_PATH}/soggetti.parquet"),
+            ex.submit(dl, nav,    site_id,    drive_id,    f"{FOLDER_PATH}/utenza.xlsx"),
+            ex.submit(dl, nav_dt, site_id_dt, drive_id_dt, f"{DT_FOLDER_PATH}/dt_soggetti.parquet"),
+            ex.submit(dl, nav_dt, site_id_dt, drive_id_dt, f"{DT_FOLDER_PATH}/dt.parquet"),
+            ex.submit(dl, nav_dt, site_id_dt, drive_id_dt, f"{DT_FOLDER_PATH}/GestoriRichieste.parquet"),
+        ]
+        prenotazioni_data, soggetti_data, utenza, dt_soggetti_data, dt_data, dt_performance_data = [f.result() for f in futures]
 
     df_utenza = pd.read_excel(io.BytesIO(utenza["content"]))
     df = pd.read_parquet(io.BytesIO(prenotazioni_data['content']))

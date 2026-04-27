@@ -1,5 +1,4 @@
 import streamlit as st
-from PIL import Image
 from streamlit_option_menu import option_menu
 import importlib
 import os
@@ -45,20 +44,21 @@ def get_pages_by_role(role):
     page_labels = config['page_labels']
     icons = config['icons']
     
+    cache_key = f"_modules_{role}"
+    if cache_key in st.session_state:
+        return st.session_state[cache_key]
+
     pages = []
     modules = []
     BLACKLIST_FILES = ['__init__', 'test', 'auth', 'utils']
-    
-    # Verifica se la cartella esiste
+
     if not os.path.exists(PAGES_FOLDER):
         st.error(f"Directory '{PAGES_FOLDER}' non trovata per il ruolo {role}!")
         return [], [], []
-    
-    # Ottieni i file nella cartella
-    files = [f[:-3] for f in os.listdir(PAGES_FOLDER) 
+
+    files = [f[:-3] for f in os.listdir(PAGES_FOLDER)
              if f.endswith('.py') and f[:-3] not in BLACKLIST_FILES]
-    
-    # Ordina secondo l'ordine specificato e importa moduli
+
     for i, page_file in enumerate(page_order):
         if page_file in files:
             try:
@@ -68,8 +68,10 @@ def get_pages_by_role(role):
             except ImportError as e:
                 st.warning(f"Impossibile importare il modulo '{page_file}': {e}")
                 continue
-    
-    return pages, icons[:len(pages)], modules
+
+    result = pages, icons[:len(pages)], modules
+    st.session_state[cache_key] = result
+    return result
 
 class MultiApp:
     def __init__(self):

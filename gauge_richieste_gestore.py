@@ -57,9 +57,9 @@ def matrice_incassi_post_bi(df: pd.DataFrame, username: str) -> None:
         .copy()
     )
 
-    # per ogni richiesta BI disponibile (Intestazione + dataRichiestaBi + NOME SERVIZIO)
+    # per ogni richiesta BI disponibile (Intestazione + dataRichiestaBi + nomeServizio)
     bi_requests = (
-        df[["Intestazione", "dataRichiestaBi", "NOME SERVIZIO"]]
+        df[["Intestazione", "dataRichiestaBi", "nomeServizio"]]
         .drop_duplicates()
         .copy()
     )
@@ -73,7 +73,7 @@ def matrice_incassi_post_bi(df: pd.DataFrame, username: str) -> None:
         if candidate.empty:
             return None
         idx = candidate["dataRichiestaBi"].idxmax()
-        return candidate.loc[idx, "NOME SERVIZIO"]
+        return candidate.loc[idx, "nomeServizio"]
 
     incassi["bi_col"] = incassi.apply(assegna_servizio, axis=1)
     df = incassi[incassi["bi_col"].notna()]

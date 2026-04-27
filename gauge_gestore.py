@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import re
 
 
 MAPPA_GESTORI = {
@@ -32,6 +33,7 @@ MAPPA_GESTORI = {
     "Lucia Ragone": "Lucia Ragone",
     "Lucia Ragone ": "Lucia Ragone",
     "Mariagiulia Berardi": "Maria Giulia Berardi",
+    "ALESSANDRA DENZA": "Alessandra Denza"
 }
 
 MAPPA_SERVIZI = {
@@ -50,7 +52,7 @@ MAPPA_SERVIZI = {
 }
 
 
-def _prepara_df(df: pd.DataFrame, anno: int = 2025) -> pd.DataFrame:
+def _prepara_df(df: pd.DataFrame, anno: int = 2024) -> pd.DataFrame:
     dfc = df.copy()
 
     if "NOME SERVIZIO" in dfc.columns:
@@ -62,8 +64,23 @@ def _prepara_df(df: pd.DataFrame, anno: int = 2025) -> pd.DataFrame:
         dfc["GESTORE"] = "Unknown"
 
     if "DATA RICHIESTA" in dfc.columns:
-        dfc["DATA RICHIESTA"] = pd.to_datetime(dfc["DATA RICHIESTA"], errors="coerce", dayfirst=True)
+
+        dfc["DATA RICHIESTA"] = (
+            dfc["DATA RICHIESTA"]
+            .replace(r"^\s*$", pd.NA, regex=True)
+        )
+        dfc["DATA RICHIESTA"] = pd.to_datetime(
+            dfc["DATA RICHIESTA"], errors="coerce", dayfirst=True
+        )
+
+        # SCARTA SEMPRE date nulle/non valide
+        dfc = dfc.dropna(subset=["DATA RICHIESTA"])
+
+        # tieni solo anno richiesto
         dfc = dfc[dfc["DATA RICHIESTA"].dt.year == anno]
+    else:
+        # se manca la colonna data, nessuna riga è valida
+        return dfc.iloc[0:0].copy()
 
     dfc["COSTO"] = pd.to_numeric(dfc.get("COSTO", 0), errors="coerce").fillna(0.0)
     return dfc
@@ -77,50 +94,71 @@ def gauge_spesa_gestore(
 ):
 
 
-    gestore_norm = MAPPA_GESTORI.get(gestore_loggato, gestore_loggato).strip()
-
     dfc = _prepara_df(df, anno=anno)
 
     if dfc.empty:
         st.warning(f"Nessun dato disponibile per l'anno {anno}.")
         return
 
+    dfc["GESTORE_KEY"] = (
+        dfc["GESTORE"]
+        .astype(str)
+        .str.strip()
+        .str.upper()
+        .str.replace(r"\s+", " ", regex=True)
+    )
+
+    gestore_norm = MAPPA_GESTORI.get(gestore_loggato, gestore_loggato)
+    gestore_key = re.sub(r"\s+", " ", str(gestore_norm).strip().upper())
+
+    righe_gestore = dfc[dfc["GESTORE_KEY"] == gestore_key]
+    if righe_gestore.empty:
+        st.warning(f"Nessuna riga trovata per {gestore_norm} nel {anno}.")
+        return
+
+
+    cols_show = [c for c in ["DATA RICHIESTA", "GESTORE", "NOME SERVIZIO", value_col] if c in righe_gestore.columns]
+    debug_sum = righe_gestore[cols_show].copy()
+
+    # ordine + numerazione + cumulata per controllo
+    if "DATA RICHIESTA" in debug_sum.columns:
+        debug_sum = debug_sum.sort_values("DATA RICHIESTA")
+    debug_sum = debug_sum.reset_index(drop=True)
+    debug_sum["#"] = debug_sum.index + 1
+    debug_sum["CUMULATA"] = pd.to_numeric(debug_sum[value_col], errors="coerce").fillna(0).cumsum()
+
+    with st.expander(f"Costi di {gestore_norm} ({anno})", expanded=True):
+        st.write(f"Righe sommate: **{len(debug_sum)}**")
+        st.write(f"Totale sommato: **€ {debug_sum[value_col].sum():,.2f}**")
+        st.dataframe(debug_sum[["#", *cols_show, "CUMULATA"]], use_container_width=True)
+
+    spesa_gestore = float(debug_sum[value_col].sum())
+
     spesa_per_gestore = (
-        dfc.groupby("GESTORE")[value_col]
+        dfc.groupby("GESTORE_KEY")[value_col]
         .sum()
         .reset_index()
         .rename(columns={value_col: "SPESA_TOTALE"})
     )
     spesa_per_gestore["SPESA_TOTALE"] = spesa_per_gestore["SPESA_TOTALE"].round(2)
 
-    media_gestori = spesa_per_gestore["SPESA_TOTALE"].mean()
-    max_spesa = spesa_per_gestore["SPESA_TOTALE"].max()
-
-    riga_gestore = spesa_per_gestore[spesa_per_gestore["GESTORE"] == gestore_norm]
-    if riga_gestore.empty:
-        st.warning(
-            f"Gestore **{gestore_norm}** non trovato nei dati {anno}. "
-                        "Fai la tua prima richiesta per vedere il tuo punteggio!"
-        )
-        return
-
-    spesa_gestore = float(riga_gestore["SPESA_TOTALE"].iloc[0])
-    n_gestori = len(spesa_per_gestore)
+    media_gestori = float(spesa_per_gestore["SPESA_TOTALE"].mean())
+    max_spesa = float(spesa_per_gestore["SPESA_TOTALE"].max())
+    n_gestori = int(len(spesa_per_gestore))
 
     percentile = float(
         (spesa_per_gestore["SPESA_TOTALE"] <= spesa_gestore).mean() * 100
     )
 
-
     delta = spesa_gestore - media_gestori
     delta_pct = (delta / media_gestori * 100) if media_gestori > 0 else 0
 
     gauge_max = max(max_spesa * 1.15, spesa_gestore * 1.2, 1.0)
-
     zona_verde = media_gestori * 0.85
     zona_gialla = media_gestori * 1.15
 
-   
+
+
 
     C_BG          = "#f4f3ed"   
     C_BG2         = "#ecebe3"   

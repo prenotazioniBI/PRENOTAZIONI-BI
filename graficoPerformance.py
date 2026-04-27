@@ -18,7 +18,6 @@ def grafico_conversione_bi(df_full: pd.DataFrame, dt_performance: pd.DataFrame, 
     - df_full:        colonna gestore = 'GESTORE'
     - dt_performance: colonna gestore = 'assetManager'
     """
-
     username_parts = username.strip().upper().split()
     username_norm  = " ".join(reversed(username_parts))
 

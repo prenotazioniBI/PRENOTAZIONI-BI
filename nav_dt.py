@@ -1,9 +1,12 @@
 import streamlit as st
 import pandas as pd
 import io
+from datetime import datetime, timedelta
+import pytz
+from nav import _scarica_file_sp
+
 
 def carica_richieste_personali_dt(nav):
-    """Carica le richieste DT personali dell'utente dal suo file su SharePoint"""
     user = st.session_state.get("user", {})
     email = user.get("email", "")
 
@@ -11,32 +14,19 @@ def carica_richieste_personali_dt(nav):
         nome_cognome = email.split("@")[0].replace(".", "_").lower()
         if nome_cognome.endswith("_ext"):
             nome_cognome = nome_cognome[:-4]
-        file_name = f"{nome_cognome}_dt.parquet"
     else:
         username = user.get("username", "")
-        username_norm = str(username).strip().lower().replace(" ", "_")
-        file_name = f"{username_norm}_dt.parquet"
-    
+        nome_cognome = str(username).strip().lower().replace(" ", "_")
+
     folder = st.secrets.get("DT_FOLDER_PATH", "dt")
-    
+    file_path = f"{folder}/{nome_cognome}_dt.parquet"
+
     site_id = nav.get_site_id()
     drive_id, _ = nav.get_drive_id(site_id)
-    
-    file_path = f"{folder}/{file_name}"
-    
+
     try:
-        file_data = nav.download_file(site_id, drive_id, file_path)
-        if isinstance(file_data, dict) and 'content' in file_data:
-            content = file_data['content']
-        elif isinstance(file_data, (bytes, bytearray)):
-            content = bytes(file_data)
-        elif hasattr(file_data, "read"):
-            content = file_data.read()
-        else:
-            return pd.DataFrame()  # File non trovato
-        
-        df_personale = pd.read_parquet(io.BytesIO(content))
-        return df_personale
+        content = _scarica_file_sp(nav.access_token, nav.graph_url, site_id, drive_id, file_path)
+        return pd.read_parquet(io.BytesIO(content))
     except Exception as e:
         print(f"Errore caricamento file DT personale: {e}")
         return pd.DataFrame()
@@ -45,7 +35,7 @@ def carica_richieste_personali_dt(nav):
 def visualizza_richieste_personali_dt(nav, df_centralizzato_dt=None):
     """Visualizza le richieste DT personali dell'utente"""
     
-    col1, col2, col3 = st.columns([0.2, 1, 1])
+    col1, *_ = st.columns([0.2, 1, 1])
     with col1:
         if st.button("⟳", key="refresh_richieste_personali_dt"):
             st.cache_data.clear()
@@ -61,23 +51,12 @@ def visualizza_richieste_personali_dt(nav, df_centralizzato_dt=None):
     if df_centralizzato_dt is None:
         try:
             folder = st.secrets.get("DT_FOLDER_PATH", "dt")
-            central_filename = "dt.parquet"
-            central_path = f"{folder}/{central_filename}"
-            if nav.login():
-                site_id = nav.get_site_id()
-                drive_id, _ = nav.get_drive_id(site_id)
-                if site_id and drive_id and nav.file_exists(site_id, drive_id, central_path):
-                    file_data = nav.download_file(site_id, drive_id, central_path)
-                    if isinstance(file_data, dict) and "content" in file_data:
-                        content = file_data["content"]
-                    elif isinstance(file_data, (bytes, bytearray)):
-                        content = bytes(file_data)
-                    elif hasattr(file_data, "read"):
-                        content = file_data.read()
-                    else:
-                        content = None
-                    if content:
-                        df_centralizzato_dt = pd.read_parquet(io.BytesIO(content))
+            central_path = f"{folder}/dt.parquet"
+            site_id = nav.get_site_id()
+            drive_id, _ = nav.get_drive_id(site_id)
+            if site_id and drive_id:
+                content = _scarica_file_sp(nav.access_token, nav.graph_url, site_id, drive_id, central_path)
+                df_centralizzato_dt = pd.read_parquet(io.BytesIO(content))
         except Exception as e:
             st.warning(f"Impossibile caricare dt.parquet centralizzato: {e}")
             df_centralizzato_dt = None
@@ -107,8 +86,6 @@ def visualizza_richieste_personali_dt(nav, df_centralizzato_dt=None):
             df_gestore = df.copy()
         
 
-        from datetime import datetime, timedelta
-        import pytz
         roma_tz = pytz.timezone("Europe/Rome")
         now_rome = datetime.now(roma_tz)
         oggi_rome = now_rome.date()
@@ -172,7 +149,8 @@ def visualizza_richieste_personali_dt(nav, df_centralizzato_dt=None):
                 "DATA RICHIESTA",
                 "id",
                 "INVIATE AL PROVIDER",
-                "MOTIVAZIONE"]
+                "MOTIVAZIONE",
+                "IBAN"]
 
         # Controlla quali colonne esistono effettivamente
         colonne_sett = [c for c in colonne_vista_dt if c in df_settimanale.columns]

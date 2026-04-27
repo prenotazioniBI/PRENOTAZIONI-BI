@@ -2,6 +2,7 @@ import streamlit as st
 from richieste import banner_richiesta_utente
 import pandas as pd
 from informazioni import dialog_info_richieste
+from nav import _scarica_file_sp
 
 def mostra_totale_costi(servizi_scelti):
     costi_servizi = {
@@ -115,6 +116,7 @@ def gestisci_nuova_richiesta(df, df_soggetti, richieste, menu_funzione, nav, nom
                         for key in ["richiesta", "servizi_scelti", "inserimento_richiesta", "richiesta_in_corso"]:
                             if key in st.session_state:
                                 del st.session_state[key]
+                        _scarica_file_sp.clear()
                         st.rerun()
                     else:
                         st.error(msg)

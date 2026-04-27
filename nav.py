@@ -2,35 +2,29 @@
 import streamlit as st
 import pandas as pd
 import io
+import requests
+from urllib.parse import quote
+
+@st.cache_data(ttl=300, show_spinner=False)
+def _scarica_file_sp(access_token, graph_url, site_id, drive_id, file_path):
+    encoded = quote(file_path)
+    url = f"{graph_url}/sites/{site_id}/drives/{drive_id}/root:/{encoded}:/content"
+    resp = requests.get(url, headers={"Authorization": f"Bearer {access_token}"})
+    resp.raise_for_status()
+    return resp.content
 
 def carica_richieste_personali(nav):
-    """Carica le richieste personali dell'utente dal suo file su SharePoint"""
     user = st.session_state.get("user", {})
     username = user.get("username", "")
-
     username_norm = str(username).strip().lower().replace(" ", "_")
-    file_name = f"{username_norm}_prenotazioni.parquet"
-
     folder = getattr(nav, "folder_path", None) or st.secrets.get("FOLDER_PATH", "General/PRENOTAZIONI_BI")
-
+    file_path = f"{folder}/{username_norm}_prenotazioni.parquet"
 
     site_id = nav.get_site_id()
     drive_id, _ = nav.get_drive_id(site_id)
 
-    file_path = f"{folder}/{file_name}"
-
-
-    file_data = nav.download_file(site_id, drive_id, file_path)
-    if isinstance(file_data, dict) and 'content' in file_data:
-        content = file_data['content']
-    elif isinstance(file_data, (bytes, bytearray)):
-        content = bytes(file_data)
-    elif hasattr(file_data, "read"):
-        content = file_data.read()
-
-
-    df_personale = pd.read_parquet(io.BytesIO(content))
-    return df_personale
+    content = _scarica_file_sp(nav.access_token, nav.graph_url, site_id, drive_id, file_path)
+    return pd.read_parquet(io.BytesIO(content))
 
 
 def visualizza_richieste_personali(nav, df_centralizzato=None):
@@ -47,24 +41,12 @@ def visualizza_richieste_personali(nav, df_centralizzato=None):
     if df_centralizzato is None:
         try:
             folder = getattr(nav, "folder_path", None) or st.secrets.get("FOLDER_PATH", "General/PRENOTAZIONI_BI")
-            central_filename = "prenotazioni_bi.parquet"
-            central_path = f"{folder}/{central_filename}"
-            if nav.login():
-                site_id = nav.get_site_id()
-                drive_id, _ = nav.get_drive_id(site_id)
-                if site_id and drive_id and nav.file_exists(site_id, drive_id, central_path):
-                    file_data = nav.download_file(site_id, drive_id, central_path)
-                    import io
-                    if isinstance(file_data, dict) and "content" in file_data:
-                        content = file_data["content"]
-                    elif isinstance(file_data, (bytes, bytearray)):
-                        content = bytes(file_data)
-                    elif hasattr(file_data, "read"):
-                        content = file_data.read()
-                    else:
-                        content = None
-                    if content:
-                        df_centralizzato = pd.read_parquet(io.BytesIO(content))
+            central_path = f"{folder}/prenotazioni_bi.parquet"
+            site_id = nav.get_site_id()
+            drive_id, _ = nav.get_drive_id(site_id)
+            if site_id and drive_id:
+                content = _scarica_file_sp(nav.access_token, nav.graph_url, site_id, drive_id, central_path)
+                df_centralizzato = pd.read_parquet(io.BytesIO(content))
         except Exception as e:
             st.warning(f"Impossibile caricare prenotazioni_bi.parquet: {e}")
             df_centralizzato = None

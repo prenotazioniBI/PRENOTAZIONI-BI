@@ -12,7 +12,7 @@ def salva_richiesta_utente_dt(df_dt, servizi_scelti, navigator_dt, cf=None, port
                              provincia=None, sigla=None, cap=None, regione=None,
                              tipoLuogo=None, pec=None,
                              originator=None, telefono_gestore=None,
-                             email_gestore=None, motivazione=None,**kwargs):
+                             email_gestore=None,iban=None, motivazione=None,**kwargs):
     
     try:
         nav = navigator_dt
@@ -123,7 +123,8 @@ def salva_richiesta_utente_dt(df_dt, servizi_scelti, navigator_dt, cf=None, port
             "DATA RICHIESTA": data_richiesta,
             "INVIATE AL PROVIDER": None,
             "COSTO": None,
-            "MOTIVAZIONE": motivazione
+            "MOTIVAZIONE": motivazione,
+            "IBAN": iban
         }
         
         
@@ -364,45 +365,32 @@ def modifica_celle_excel_dt(df_dt, mostra_editor=True, key_suffix=""):
     if 'NDG DEBITORE' in df_dt.columns:
         df_dt['NDG DEBITORE'] = df_dt['NDG DEBITORE'].astype(str)
     
-    # CORREZIONE: Usa la funzione mostra_df_filtrato_home_admin_dt
     df_filtered = mostra_df_filtrato_home_admin_dt(df_dt, key_suffix=key_suffix)
-    
+
     if df_filtered is None or df_filtered.empty:
         st.warning("Nessun dato dopo i filtri")
         return None
 
     colonne = [
-        "id",
-        "PORTAFOGLIO",
-        "NDG DEBITORE", 
-        "NOMINATIVO POSIZIONE",
-        "RAPPORTO",
-        "NDG NOMINATIVO RICERCATO",
-        "GBV ATTUALE",
-        "DESTINATARIO",
-        "GESTORE",
-        "TELEFONO GESTORE",
-        "EMAIL GESTORE", 
-        "DATA RICHIESTA",
-        "INVIATE AL PROVIDER",
-        "TIPO LUOGO",
-        "SIGLA",
-        "REGIONE",
-        "PEC DESTINATARIO",
-        "INDIRIZZO",
-        "CITTA",
-        "CAP",
-        "PROVINCIA",
-        "TIPOLOGIA DOCUMENTO",
-        "MODALITA INVIO",
-        "ORIGINATOR"
+        "id", "PORTAFOGLIO", "NDG DEBITORE", "NOMINATIVO POSIZIONE",
+        "RAPPORTO", "NDG NOMINATIVO RICERCATO", "GBV ATTUALE",
+        "DESTINATARIO", "GESTORE", "TELEFONO GESTORE", "EMAIL GESTORE",
+        "DATA RICHIESTA", "INVIATE AL PROVIDER", "TIPO LUOGO", "SIGLA",
+        "REGIONE", "PEC DESTINATARIO", "INDIRIZZO", "CITTA", "CAP",
+        "PROVINCIA", "TIPOLOGIA DOCUMENTO", "MODALITA INVIO", "ORIGINATOR", "IBAN"
     ]
 
+    # ── Toggle IBAN ──────────────────────────────────────────────────────────
+    mostra_iban = st.toggle("👁️ Mostra colonna IBAN", value=False, key=f"toggle_iban_{key_suffix}")
+    if not mostra_iban:
+        colonne = [col for col in colonne if col != "IBAN"]
+    # ────────────────────────────────────────────────────────────────────────
+
+    # Il filtraggio colonne avviene DOPO il toggle, non prima
     cols_to_show = [col for col in colonne if col in df_filtered.columns]
-    df_filtered = df_filtered[cols_to_show]
 
     if mostra_editor:
-        df_copy = df_filtered.copy().reset_index(drop=True)
+        df_copy = df_filtered[cols_to_show].copy().reset_index(drop=True)
         df_copy.insert(0, "ELIMINA", False)
         df_copy = df_copy.loc[:, ~df_copy.columns.duplicated()]
         
@@ -413,7 +401,8 @@ def modifica_celle_excel_dt(df_dt, mostra_editor=True, key_suffix=""):
                 df_copy["INVIATE AL PROVIDER"], format="mixed", dayfirst=True, errors="coerce"
             )
 
-        editor_key = f"editor_admin_dt_{key_suffix}" if key_suffix else "editor_admin_dt"
+        iban_suffix = "con_iban" if mostra_iban else "senza_iban"
+        editor_key = f"editor_admin_dt_{key_suffix}_{iban_suffix}" if key_suffix else f"editor_admin_dt_{iban_suffix}"
         
         edited_df = st.data_editor(
             df_copy,
@@ -429,10 +418,9 @@ def modifica_celle_excel_dt(df_dt, mostra_editor=True, key_suffix=""):
                 ),
             }
         )
-        
         return edited_df
-    
-    return df_filtered
+        
+    return df_filtered[cols_to_show]
 
 def filtra_cf_massivi(df, df_massiva):
     cf_duplicati = []

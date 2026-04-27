@@ -1,9 +1,12 @@
 import streamlit as st
-import time
 import pandas as pd
 from io import BytesIO
 import requests
 from urllib.parse import quote
+from datetime import datetime
+import pytz
+import time
+from nav import _scarica_file_sp
 
 
 def controlla_duplicati_cf(cf_richiesta, servizi_scelti, navigator_dt):
@@ -122,237 +125,148 @@ def controlla_duplicati_cf(cf_richiesta, servizi_scelti, navigator_dt):
         st.warning(f"Impossibile verificare duplicati: {e}")
         return True
 
-
-
 def seleziona_servizio(dt_soggetti, df_dt, navigator_dt, menu_utente_dt):
-    richieste = [
-        "Diffida",
-        "Welcome Letter",
-        "Telegramma"
-    ]
+    richieste = ["Diffida", "Welcome Letter", "Telegramma"]
+
+    def _norm(x):
+        return str(x or "").strip().upper().replace(" ", "")
+
+    def _safe_val(row, *possible_cols):
+        if row is None:
+            return ""
+        cols_map = {str(c).strip().lower(): c for c in row.index}
+        for c in possible_cols:
+            real = cols_map.get(str(c).strip().lower())
+            if real is not None:
+                v = row.get(real, "")
+                if pd.isna(v) or v is None or str(v).lower() in ["none", "null", "nan"]:
+                    return ""
+                return str(v).strip()
+        return ""
+
     st.markdown("TIPOLOGIA RICHIESTA:")
-    servizi_scelti = st.multiselect(
-        " ",
-        richieste,
-        key="servizi_scelti"
-    )
+    servizi_scelti = st.multiselect(" ", richieste, key="servizi_scelti")
 
-    if servizi_scelti:
-        if "Telegramma" in servizi_scelti and len(servizi_scelti) > 1:
-            st.error("ATTENZIONE: Telegramma NON può essere richiesto insieme ad altri servizi!")
-            st.info("Rimuovi Telegramma per continuare con Diffida/Welcome Letter, oppure seleziona solo Telegramma.")
-            return []  
-        
-        if "Telegramma" in servizi_scelti and any(serv in ["Diffida", "Welcome Letter"] for serv in servizi_scelti):
-            st.error("Telegramma è incompatibile con Diffida e Welcome Letter")
-            return []
-
-    if servizi_scelti:
+    if not servizi_scelti:
         st.divider()
-        st.subheader("Dettagli aggiuntivi richiesti")
+        if "richiesta_in_corso" not in st.session_state:
+            st.session_state["richiesta_in_corso"] = False
+        return servizi_scelti
 
-        cf_richiesta = st.session_state["richiesta"]["cf"]
-        soggetti_completi = dt_soggetti[dt_soggetti["codiceFiscale"].astype(str).str.upper() == cf_richiesta.upper()]
-        
-        if not soggetti_completi.empty:
-            soggetto_completo = soggetti_completi.iloc[0]
-            
-            user = st.session_state.get("user", {})
-            email_gestore_default = user.get("email", "") 
-            nome_gestore = user.get("nome", user.get("username", ""))
-
-            # DIFFIDA e WELCOME LETTER: Possono scegliere PEC o RACCOMANDATA
-            if any(servizio in ["Diffida", "Welcome Letter"] for servizio in servizi_scelti):
-                st.markdown("**Tipo di invio per Diffida/Welcome Letter:**")
-                
-                tipo_invio = st.selectbox(
-                    "Seleziona modalità di invio:",
-                    ["PEC", "RACCOMANDATA"],
-                    key="tipo_invio_diffida"
-                )
-                
-                st.divider()
-                
-                if tipo_invio == "PEC":
-                    st.markdown("**Dati PEC Destinatario:**")
-                    pec_raw = soggetto_completo.get('indirizzoPostaElettronica', '')
-                    if pd.isna(pec_raw) or pec_raw is None or str(pec_raw).lower() in ['none', 'null', 'nan']:
-                        pec_default = ""
-                    else:
-                        pec_default = str(pec_raw).strip()
-                    pec_mod = st.text_input("PEC Destinatario *", 
-                        value=pec_default,
-                        key="pec_diffida",
-                        help="Indirizzo PEC del destinatario")
-                
-
-                elif tipo_invio == "RACCOMANDATA":
-                    st.markdown("**Dati indirizzo per invio postale:**")
-                    
-                    col1, col2 = st.columns(2)
-
-                    with col1:
-                        indirizzo_raw = soggetto_completo.get('indirizzo', '')
-                        indirizzo_value = "" if pd.isna(indirizzo_raw) or indirizzo_raw is None else str(indirizzo_raw)
-                        
-                        comune_raw = soggetto_completo.get('comune', '')
-                        comune_value = "" if pd.isna(comune_raw) or comune_raw is None else str(comune_raw)
-                        
-                        provincia_raw = soggetto_completo.get('provincia', '')
-                        provincia_value = "" if pd.isna(provincia_raw) or provincia_raw is None else str(provincia_raw)
-                        
-                        indirizzo_mod = st.text_input("Indirizzo (via e numero civico) *", 
-                            value=indirizzo_value, 
-                            key="indirizzo_diffida",
-                            help="Inserisci via e numero civico insieme (es: Via Roma 10)")
-                        comune_mod = st.text_input("Comune *", 
-                            value=comune_value, 
-                            key="comune_diffida")
-                        provincia_mod = st.text_input("Provincia", 
-                            value=provincia_value, 
-                            key="provincia_diffida")
-                    
-                    with col2:
-                        sigla_raw = soggetto_completo.get('sigla', '')
-                        sigla_value = "" if pd.isna(sigla_raw) or sigla_raw is None else str(sigla_raw)
-                        
-                        cap_raw = soggetto_completo.get('cap', '')
-                        cap_value = "" if pd.isna(cap_raw) or cap_raw is None else str(cap_raw)
-                        
-                        regione_raw = soggetto_completo.get('regione', '')
-                        regione_value = "" if pd.isna(regione_raw) or regione_raw is None else str(regione_raw)
-                        
-                        tipo_luogo_raw = soggetto_completo.get('tipoLuogo', '')
-                        tipo_luogo_value = "" if pd.isna(tipo_luogo_raw) or tipo_luogo_raw is None else str(tipo_luogo_raw)
-                        
-                        sigla_mod = st.text_input("Sigla Provincia", 
-                            value=sigla_value, 
-                            key="sigla_diffida")
-                        cap_mod = st.text_input("CAP *", 
-                            value=cap_value, 
-                            key="cap_diffida")
-                        regione_mod = st.text_input("Regione", 
-                            value=regione_value, 
-                            key="regione_diffida")
-                        tipo_luogo_mod = st.text_input("Tipo Luogo", 
-                            value=tipo_luogo_value, 
-                            key="tipo_luogo_diffida")
-                        originator_raw = soggetto_completo.get('fonteRecapito', '')
-                        if pd.isna(originator_raw) or originator_raw is None or str(originator_raw).lower() in ['none', 'null', 'nan']:
-                            originator_default = ""
-                        else:
-                            originator_default = str(originator_raw).strip()
-                        
-                        originator = st.text_input("Originator *", 
-                            value=originator_default, 
-                            key="originator",
-                            help="Nome dell'Originator")
-
-       
-            if "Telegramma" in servizi_scelti:
-                st.markdown("**Dati indirizzo di spedizione Telegramma:**")
-                
-                st.session_state["tipo_invio_telegramma"] = "RACCOMANDATA"
-                
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    indirizzo_raw = soggetto_completo.get('indirizzo', '')
-                    indirizzo_value = "" if pd.isna(indirizzo_raw) or indirizzo_raw is None else str(indirizzo_raw)
-                    
-                    comune_raw = soggetto_completo.get('comune', '')
-                    comune_value = "" if pd.isna(comune_raw) or comune_raw is None else str(comune_raw)
-                    
-                    provincia_raw = soggetto_completo.get('provincia', '')
-                    provincia_value = "" if pd.isna(provincia_raw) or provincia_raw is None else str(provincia_raw)
-                    
-                    indirizzo_mod = st.text_input("Indirizzo *", 
-                        value=indirizzo_value, 
-                        key="indirizzo_telegramma")
-                    comune_mod = st.text_input("Comune *", 
-                        value=comune_value, 
-                        key="comune_telegramma")
-                    provincia_mod = st.text_input("Provincia", 
-                        value=provincia_value, 
-                        key="provincia_telegramma")
-                
-                with col2:
-                    sigla_raw = soggetto_completo.get('sigla', '')
-                    sigla_value = "" if pd.isna(sigla_raw) or sigla_raw is None else str(sigla_raw)
-                    
-                    cap_raw = soggetto_completo.get('cap', '')
-                    cap_value = "" if pd.isna(cap_raw) or cap_raw is None else str(cap_raw)
-                    
-                    regione_raw = soggetto_completo.get('regione', '')
-                    regione_value = "" if pd.isna(regione_raw) or regione_raw is None else str(regione_raw)
-                    
-                    tipo_luogo_raw = soggetto_completo.get('tipoLuogo', '')
-                    tipo_luogo_value = "" if pd.isna(tipo_luogo_raw) or tipo_luogo_raw is None else str(tipo_luogo_raw)
-                    
-                    sigla_mod = st.text_input("Sigla Provincia", 
-                        value=sigla_value, 
-                        key="sigla_telegramma")
-                    cap_mod = st.text_input("CAP *", 
-                        value=cap_value, 
-                        key="cap_telegramma")
-                    regione_mod = st.text_input("Regione", 
-                        value=regione_value, 
-                        key="regione_telegramma")
-                    tipo_luogo_mod = st.text_input("Tipo Luogo", 
-                        value=tipo_luogo_value, 
-                        key="tipo_luogo_telegramma")
-
-            
-            st.divider()
-
-
-            st.markdown("**Dati Obbligatori:**")
-            
-            col1, col2 = st.columns(2)
-            
-            with col1:
-    
-                
-                email_gestore = st.text_input("Email Gestore *", 
-                    value=email_gestore_default, 
-                    key="email_gestore",
-                    help="La tua email di contatto (precompilata dal login)")
-            
-            with col2:
-                telefono_gestore = st.text_input("Numero Telefono *", 
-                    value="", 
-                    key="telefono_gestore",
-                    placeholder="Es: +39 123 456 7890",
-                    help="Il tuo numero di telefono")
-                
-                if nome_gestore:
-                    st.text_input("Nome Gestore", 
-                        value=nome_gestore, 
-                        disabled=True,
-                        help="Nome del gestore loggato")
-            st.divider()
-
-
-            st.markdown("**Seleziona Motivazione:**")
-
-            st.selectbox(
-                    "Seleziona il motivo:",
-                    ["STIMOLARE CONTATTO", "INTERROMPERE PRESCRIZIONE","AVVIO ATTI"],
-                    key="motivazione"
-                )
-                
-        else:
-            st.error("Impossibile recuperare i dati completi del soggetto")
-            st.stop()
+    if "Telegramma" in servizi_scelti and len(servizi_scelti) > 1:
+        st.error("ATTENZIONE: Telegramma NON può essere richiesto insieme ad altri servizi.")
+        return []
 
     st.divider()
+    st.subheader("Dettagli aggiuntivi richiesti")
 
+    richiesta = st.session_state.get("richiesta", {})
+    cf_richiesta = _norm(richiesta.get("cf", ""))
+
+    if not cf_richiesta:
+        st.error("CF non presente nella richiesta.")
+        st.stop()
+
+    # Match soggetto su dt_soggetti (colonne case-insensitive)
+    cols_df = {str(c).strip().lower(): c for c in dt_soggetti.columns}
+    cf_col = cols_df.get("codicefiscale") or cols_df.get("cf") or cols_df.get("codice fiscale")
+    if not cf_col:
+        st.error("Colonna CF non trovata in dt_soggetti.")
+        st.stop()
+
+    soggetti_completi = dt_soggetti[dt_soggetti[cf_col].map(_norm) == cf_richiesta]
+    if soggetti_completi.empty:
+        st.error("Impossibile recuperare i dati del soggetto da dt_soggetti.")
+        st.stop()
+
+    soggetto_completo = soggetti_completi.iloc[0]
+
+    is_diffida_or_welcome = any(s in ["Diffida", "Welcome Letter"] for s in servizi_scelti)
+
+    # ── NUOVA LOGICA IBAN ─────────────────────────────────────────────────────
+    # Mostra l'IBAN se presente per quel CF, indipendentemente dal portafoglio
+    if is_diffida_or_welcome:
+        iban_value = _safe_val(soggetto_completo, "iban")
+        if iban_value:
+            st.text_input(
+                "IBAN",
+                value=iban_value,
+                disabled=True,
+                key="iban_clessidra_readonly_ui",
+                help="IBAN letto automaticamente da dt_soggetti.parquet",
+            )
+            st.session_state["richiesta"]["iban"] = iban_value
+    # ─────────────────────────────────────────────────────────────────────────
+
+    user = st.session_state.get("user", {})
+    email_gestore_default = user.get("email", "")
+    nome_gestore = user.get("nome", user.get("username", ""))
+
+    # DIFFIDA / WELCOME
+    if any(s in ["Diffida", "Welcome Letter"] for s in servizi_scelti):
+        st.markdown("**Tipo di invio per Diffida/Welcome Letter:**")
+        tipo_invio = st.selectbox(
+            "Seleziona modalità di invio:",
+            ["PEC", "RACCOMANDATA"],
+            key="tipo_invio_diffida",
+        )
+        st.divider()
+
+        if tipo_invio == "PEC":
+            pec_default = _safe_val(soggetto_completo, "indirizzoPostaElettronica")
+            st.text_input("PEC Destinatario *", value=pec_default, key="pec_diffida")
+        else:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.text_input("Indirizzo (via e numero civico) *", value=_safe_val(soggetto_completo, "indirizzo"), key="indirizzo_diffida")
+                st.text_input("Comune *", value=_safe_val(soggetto_completo, "comune"), key="comune_diffida")
+                st.text_input("Provincia", value=_safe_val(soggetto_completo, "provincia"), key="provincia_diffida")
+            with col2:
+                st.text_input("Sigla Provincia", value=_safe_val(soggetto_completo, "sigla"), key="sigla_diffida")
+                st.text_input("CAP *", value=_safe_val(soggetto_completo, "cap"), key="cap_diffida")
+                st.text_input("Regione", value=_safe_val(soggetto_completo, "regione"), key="regione_diffida")
+                st.text_input("Tipo Luogo", value=_safe_val(soggetto_completo, "tipoLuogo"), key="tipo_luogo_diffida")
+                st.text_input("Originator *", value=_safe_val(soggetto_completo, "originator"), key="originator")
+
+    # TELEGRAMMA
+    if "Telegramma" in servizi_scelti:
+        st.markdown("**Dati indirizzo di spedizione Telegramma:**")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.text_input("Indirizzo *", value=_safe_val(soggetto_completo, "indirizzo"), key="indirizzo_telegramma")
+            st.text_input("Comune *", value=_safe_val(soggetto_completo, "comune"), key="comune_telegramma")
+            st.text_input("Provincia", value=_safe_val(soggetto_completo, "provincia"), key="provincia_telegramma")
+        with col2:
+            st.text_input("Sigla Provincia", value=_safe_val(soggetto_completo, "sigla"), key="sigla_telegramma")
+            st.text_input("CAP *", value=_safe_val(soggetto_completo, "cap"), key="cap_telegramma")
+            st.text_input("Regione", value=_safe_val(soggetto_completo, "regione"), key="regione_telegramma")
+            st.text_input("Tipo Luogo", value=_safe_val(soggetto_completo, "tipoLuogo"), key="tipo_luogo_telegramma")
+
+    st.divider()
+    st.markdown("**Dati Obbligatori:**")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.text_input("Email Gestore *", value=email_gestore_default, key="email_gestore")
+
+    with col2:
+        st.text_input("Numero Telefono *", value="", key="telefono_gestore")
+        if nome_gestore:
+            st.text_input("Nome Gestore", value=nome_gestore, disabled=True)
+
+    st.divider()
+    st.markdown("**Seleziona Motivazione:**")
+    st.selectbox(
+        "Seleziona il motivo:",
+        ["STIMOLARE CONTATTO", "INTERROMPERE PRESCRIZIONE", "AVVIO ATTI"],
+        key="motivazione",
+    )
+
+    st.divider()
     if "richiesta_in_corso" not in st.session_state:
         st.session_state["richiesta_in_corso"] = False
 
     return servizi_scelti
-
-
 def valida_campi_obbligatori(servizi_scelti):
     errori = []
 
@@ -513,19 +427,27 @@ def conferma_invio_richiesta(servizi_scelti, df_dt, navigator_dt, menu_utente_dt
 
         # CONTROLLO LIMITE MENSILE GESTORE
         if not controlla_limite_mensile_gestore(navigator_dt):
-            st.stop()  # Blocca l'invio se limite raggiunto
+            st.stop()
 
         cf_richiesta = st.session_state.get("richiesta", {}).get("cf", "")
         
         # CONTROLLO DUPLICATI CROSS-GESTORE
         if cf_richiesta and any(serv in ["Diffida", "Welcome Letter"] for serv in servizi_scelti):
             if not controlla_duplicati_cf(cf_richiesta, servizi_scelti, navigator_dt):
-                st.stop()  # Blocca l'invio se trovato duplicato
+                st.stop()
     
         if servizi_scelti:
             if any(servizio in ["Diffida", "Welcome Letter"] for servizio in servizi_scelti):
                 tipo_invio = st.session_state.get("tipo_invio_diffida", "")
                 st.session_state["richiesta"]["tipo_invio_diffida"] = tipo_invio
+
+                # ── FIX IBAN ──────────────────────────────────────────────────
+                # L'IBAN viene scritto in session_state["richiesta"]["iban"] da
+                # seleziona_servizio, ma il successivo .update() lo sovrascriveva
+                # o lo ignorava. Lo recuperiamo PRIMA dell'update e lo reinseriamo
+                # esplicitamente sia per RACCOMANDATA che per PEC.
+                iban_salvato = st.session_state.get("richiesta", {}).get("iban", "")
+                # ─────────────────────────────────────────────────────────────
 
                 if tipo_invio == "RACCOMANDATA":
                     indirizzo_completo = st.session_state.get("indirizzo_diffida", "").strip()
@@ -538,7 +460,14 @@ def conferma_invio_richiesta(servizi_scelti, df_dt, navigator_dt, menu_utente_dt
                         "cap": st.session_state.get("cap_diffida", "").strip(),
                         "regione": st.session_state.get("regione_diffida", "").strip(),
                         "tipoLuogo": st.session_state.get("tipo_luogo_diffida", "").strip(),
-                        "originator": st.session_state.get("originator", "").strip()
+                        "originator": st.session_state.get("originator", "").strip(),
+                        "iban": iban_salvato,  # ← FIX: IBAN reinserito dopo update
+                    })
+
+                elif tipo_invio == "PEC":
+                    # ← FIX: anche per PEC l'IBAN deve sopravvivere all'update
+                    st.session_state["richiesta"].update({
+                        "iban": iban_salvato,
                     })
 
             if "Telegramma" in servizi_scelti: 
@@ -591,7 +520,7 @@ def conferma_invio_richiesta(servizi_scelti, df_dt, navigator_dt, menu_utente_dt
                 for key in ["richiesta", "servizi_scelti", "inserimento_richiesta", "richiesta_in_corso"]:
                     if key in st.session_state:
                         del st.session_state[key]
-                
+                _scarica_file_sp.clear()
                 st.rerun()
                 
         except Exception as e:

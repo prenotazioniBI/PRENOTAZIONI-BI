@@ -12,7 +12,7 @@ def main(**kwargs):
     user = kwargs.get("user") or {}
     navigator = kwargs.get("navigator")
     dt_performance = kwargs.get("dt_performance") or st.session_state.get("dt_performance")
-
+    
     username = user.get("username")
     username_norm = " ".join(reversed(username.strip().upper().split()))
 

@@ -1,24 +1,37 @@
 import streamlit as st
-from excel_funzioni_diff import  unifica_file_utenti_dt, modifica_celle_excel_dt
-import re
+from excel_funzioni_diff import unifica_file_utenti_dt, modifica_celle_excel_dt
+import traceback
 from io import BytesIO
 import pandas as pd
-import unicodedata
+
+
+def _find_col(df_obj, candidates):
+    for c in candidates:
+        if c in df_obj.columns:
+            return c
+    return None
+
+def _clean_ndg_df(df):
+    """Pulisce NDG DEBITORE e NDG NOMINATIVO RICERCATO: rimuove trailing .0 e 'nan'."""
+    for col in ("NDG DEBITORE", "NDG NOMINATIVO RICERCATO"):
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', '')
+    return df
+
 
 def main(**kwargs):
     try:
-        st.title("Diffide e Welcome Letter")
         df_dt = kwargs.get('df_dt')
-        
+
         if df_dt is None or df_dt.empty:
             nav = kwargs.get('navigator_dt') or st.session_state.get('navigator_dt')
             colonne_attese = [
                 "PORTAFOGLIO", "CF", "NOMINATIVO POSIZIONE", "NDG DEBITORE", 
                 "NDG NOMINATIVO RICERCATO", "GESTORE", "ORIGINATOR", "DESTINATARIO",
-                "RAPPORTO", "GBV ATTUALE",  "PEC DESTINATARIO", "INDIRIZZO", 
+                "RAPPORTO", "GBV ATTUALE", "PEC DESTINATARIO", "INDIRIZZO", 
                 "NUMERO CIVICO", "CITTA", "PROVINCIA", "SIGLA", "CAP", "REGIONE",
                 "TIPO LUOGO", "EMAIL GESTORE", "TELEFONO GESTORE", "MODALITA INVIO",
-                "TIPOLOGIA DOCUMENTO", "DATA RICHIESTA", "INVIATE AL PROVIDER", "id"
+                "TIPOLOGIA DOCUMENTO", "DATA RICHIESTA", "INVIATE AL PROVIDER", "id", "IBAN"
             ]
             df_dt = pd.DataFrame(columns=colonne_attese)
             
@@ -46,15 +59,7 @@ def main(**kwargs):
                     if 'id' not in df_dt.columns:
                         df_dt['id'] = range(1, len(df_dt) + 1)
                     
-                    if 'NDG DEBITORE' in df_dt.columns:
-                        df_dt['NDG DEBITORE'] = df_dt['NDG DEBITORE'].astype(str)
-                        df_dt['NDG DEBITORE'] = df_dt['NDG DEBITORE'].str.replace(r'\.0$', '', regex=True)
-                        df_dt['NDG DEBITORE'] = df_dt['NDG DEBITORE'].replace('nan', '')
-                    
-                    if 'NDG NOMINATIVO RICERCATO' in df_dt.columns:
-                        df_dt['NDG NOMINATIVO RICERCATO'] = df_dt['NDG NOMINATIVO RICERCATO'].astype(str)
-                        df_dt['NDG NOMINATIVO RICERCATO'] = df_dt['NDG NOMINATIVO RICERCATO'].str.replace(r'\.0$', '', regex=True)
-                        df_dt['NDG NOMINATIVO RICERCATO'] = df_dt['NDG NOMINATIVO RICERCATO'].replace('nan', '')
+                    df_dt = _clean_ndg_df(df_dt)
 
                     if 'CF' in df_dt.columns:
                         df_dt['CF'] = df_dt['CF'].astype(str).replace('nan', '')
@@ -69,31 +74,23 @@ def main(**kwargs):
                     
             except Exception as e:
                 st.error(f"Errore caricamento dt.parquet: {e}")
-                import traceback
                 st.code(traceback.format_exc())
                 df_dt = pd.DataFrame(columns=colonne_attese)
 
         if not df_dt.empty:
             if 'id' not in df_dt.columns:
                 df_dt['id'] = range(1, len(df_dt) + 1)
-            
-            if 'NDG DEBITORE' in df_dt.columns:
-                df_dt['NDG DEBITORE'] = df_dt['NDG DEBITORE'].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', '')
-            
-            if 'NDG NOMINATIVO RICERCATO' in df_dt.columns:
-                df_dt['NDG NOMINATIVO RICERCATO'] = df_dt['NDG NOMINATIVO RICERCATO'].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', '')
+            df_dt = _clean_ndg_df(df_dt)
         
         if not df_dt.empty and "TIPOLOGIA DOCUMENTO" in df_dt.columns:
             mask_diffida_welcome = df_dt["TIPOLOGIA DOCUMENTO"].astype(str).str.contains(
                 "DIFFIDA|DIFFDA|WELCOME LETTER|WL", case=False, na=False
             )
-
             mask_no_telegramma_solo = ~df_dt["TIPOLOGIA DOCUMENTO"].astype(str).str.contains(
                 "^TELEGRAMMA$", case=False, na=False
             )
             
             df_dt = df_dt[mask_diffida_welcome & mask_no_telegramma_solo]
-            
             st.info(f"**Totale righe (Diffide e Welcome Letter): {len(df_dt)}**")
         
         if not df_dt.empty:
@@ -115,13 +112,7 @@ def main(**kwargs):
                                 if 'id' not in df_unificato.columns:
                                     df_unificato['id'] = range(1, len(df_unificato) + 1)
                                 
-                                if 'NDG DEBITORE' in df_unificato.columns:
-                                    df_unificato['NDG DEBITORE'] = df_unificato['NDG DEBITORE'].astype(str)
-                                    df_unificato['NDG DEBITORE'] = df_unificato['NDG DEBITORE'].str.replace(r'\.0$', '', regex=True).replace('nan', '')
-                                
-                                if 'NDG NOMINATIVO RICERCATO' in df_unificato.columns:
-                                    df_unificato['NDG NOMINATIVO RICERCATO'] = df_unificato['NDG NOMINATIVO RICERCATO'].astype(str)
-                                    df_unificato['NDG NOMINATIVO RICERCATO'] = df_unificato['NDG NOMINATIVO RICERCATO'].str.replace(r'\.0$', '', regex=True).replace('nan', '')
+                                df_unificato = _clean_ndg_df(df_unificato)
                                 
                                 st.session_state['df_dt_full'] = df_unificato
                                 st.cache_data.clear()
@@ -133,19 +124,15 @@ def main(**kwargs):
                                 
                         except Exception as e:
                             st.error(f"Errore durante unificazione: {e}")
-                            import traceback
                             st.code(traceback.format_exc())
-            
-            with col2:
-                pass
             
             with col3:
                 if st.button("⟳ Refresh"):
                     st.cache_data.clear()
                     st.rerun()
-           
+
             edited_df = modifica_celle_excel_dt(df_dt, mostra_editor=True)
-            
+
             if edited_df is not None and not edited_df.empty:
 
                 if "ELIMINA" in edited_df.columns:
@@ -194,15 +181,6 @@ def main(**kwargs):
                                 df_full_updated['id'] = range(1, len(df_full_updated) + 1)
 
                             if not righe_eliminate.empty:
-                                num_da_eliminare = len(righe_eliminate)
-                                
-                                folder_path = st.secrets["DT_FOLDER_PATH"]
-                                
-                                def _find_col(df_obj, candidates):
-                                    for c in candidates:
-                                        if c in df_obj.columns:
-                                            return c
-                                    return None
                                 
                                 central_date_col = _find_col(righe_eliminate, ["DATA RICHIESTA", "data_richiesta"])
                                 central_servizio_col = _find_col(righe_eliminate, ["TIPOLOGIA DOCUMENTO", "tipologia_documento"])
@@ -214,6 +192,7 @@ def main(**kwargs):
                                 else:
                                     gestori = righe_eliminate[gestore_col].astype(str).str.strip().unique().tolist()
                                     
+                                    # ── aggiornamento file personali ──────────────────
                                     for g in gestori:
                                         if not g or g.lower() == 'nan':
                                             continue
@@ -222,9 +201,7 @@ def main(**kwargs):
                                         personal_filename = f"{slug}_dt.parquet"
                                         personal_path = f"{folder_path.rstrip('/')}/{personal_filename}"
                                         
-                                        file_exists = nav.file_exists(site_id, drive_id, personal_path)
-                                        
-                                        if not file_exists:
+                                        if not nav.file_exists(site_id, drive_id, personal_path):
                                             continue
                                         
                                         file_data = nav.download_file(site_id, drive_id, personal_path)
@@ -245,90 +222,78 @@ def main(**kwargs):
                                         personal_date_col = _find_col(df_personal, ["DATA RICHIESTA", "data_richiesta"])
                                         personal_servizio_col = _find_col(df_personal, ["TIPOLOGIA DOCUMENTO", "tipologia_documento"])
                                         personal_cf_col = _find_col(df_personal, ["CF", "cf"])
+                                        personal_gestore_col = _find_col(df_personal, ["GESTORE", "gestore"])
                                         
                                         if not all([personal_date_col, personal_servizio_col]):
                                             continue
                                         
                                         before_count = len(df_personal)
-                                        
-                                        righe_gestore = righe_eliminate[righe_eliminate[gestore_col].astype(str).str.strip() == g]
+                                        righe_gestore = righe_eliminate[
+                                            righe_eliminate[gestore_col].astype(str).str.strip() == g
+                                        ]
 
                                         for _, riga in righe_gestore.iterrows():
-                                                data_completa = riga[central_date_col]
-                                                servizio = str(riga[central_servizio_col]) if pd.notna(riga[central_servizio_col]) else ""
-                                                cf = str(riga[central_cf_col]) if central_cf_col and pd.notna(riga[central_cf_col]) else ""
-                                                gestore_riga = str(riga[gestore_col]) if pd.notna(riga[gestore_col]) else ""  # AGGIUNGI QUESTA
-                                                
-                                                if pd.notna(data_completa):
-                                                    data_str = str(data_completa)
-                                                    data_senza_micro = data_str.split('.')[0] if '.' in data_str else data_str
-                                                else:
-                                                    data_str = ""
-                                                    data_senza_micro = ""
-                                                
-                                                servizio_lower = servizio.lower()
-                                                
-                                                # VECCHIO MATCH (senza gestore)
-                                                # mask = (df_personal[personal_date_col].astype(str).str.split('.').str[0] == data_senza_micro) & \
-                                                #        (df_personal[personal_servizio_col].astype(str).str.lower() == servizio_lower)
-                                                
-                                                # NUOVO MATCH - CON GESTORE ✅
-                                                personal_gestore_col = _find_col(df_personal, ["GESTORE", "gestore"])
-                                                
-                                                mask = (df_personal[personal_date_col].astype(str).str.split('.').str[0] == data_senza_micro) & \
-                                                    (df_personal[personal_servizio_col].astype(str).str.lower() == servizio_lower)
-                                                
-                                                if personal_gestore_col and gestore_riga:
-                                                    mask = mask & (df_personal[personal_gestore_col].astype(str).str.strip() == gestore_riga)  # AGGIUNGI QUESTA
-                                                
-                                                if personal_cf_col and cf:
-                                                    mask = mask & (df_personal[personal_cf_col].astype(str) == cf)
-                                                
-                                                df_personal = df_personal[~mask]
+                                            data_completa = riga[central_date_col]
+                                            servizio = str(riga[central_servizio_col]) if pd.notna(riga[central_servizio_col]) else ""
+                                            cf = str(riga[central_cf_col]) if central_cf_col and pd.notna(riga[central_cf_col]) else ""
+                                            gestore_riga = str(riga[gestore_col]) if pd.notna(riga[gestore_col]) else ""
+                                            
+                                            data_senza_micro = str(data_completa).split('.')[0] if pd.notna(data_completa) else ""
+                                            servizio_lower = servizio.lower()
+                                            
+                                            mask = (
+                                                df_personal[personal_date_col].astype(str).str.split('.').str[0] == data_senza_micro
+                                            ) & (
+                                                df_personal[personal_servizio_col].astype(str).str.lower() == servizio_lower
+                                            )
+                                            
+                                            if personal_gestore_col and gestore_riga:
+                                                mask = mask & (df_personal[personal_gestore_col].astype(str).str.strip() == gestore_riga)
+                                            
+                                            if personal_cf_col and cf:
+                                                mask = mask & (df_personal[personal_cf_col].astype(str) == cf)
+                                            
+                                            df_personal = df_personal[~mask]
 
                                         removed = before_count - len(df_personal)
-
                                         if removed > 0:
                                             buf = BytesIO()
                                             df_personal.to_parquet(buf, index=False)
                                             buf.seek(0)
                                             ok = nav.upload_file_direct(site_id, drive_id, personal_path, buf.getvalue())
-                                            
                                             if ok:
                                                 st.success(f"Aggiornato {personal_filename} — rimosse {removed} righe")
                                             else:
                                                 st.error(f"Errore caricamento {personal_filename}")
+
+                                    # ── FIX BUG 1: loop su df_full_updated FUORI dal for gestori ──
+                                    for _, riga in righe_eliminate.iterrows():
+                                        data_completa = riga[central_date_col]
+                                        servizio = str(riga[central_servizio_col]) if pd.notna(riga[central_servizio_col]) else ""
+                                        cf = str(riga[central_cf_col]) if central_cf_col and pd.notna(riga[central_cf_col]) else ""
+                                        gestore_riga = str(riga[gestore_col]) if pd.notna(riga[gestore_col]) else ""
                                         
-                                
-                                        for _, riga in righe_eliminate.iterrows():
-                                            data_completa = riga[central_date_col]
-                                            servizio = str(riga[central_servizio_col]) if pd.notna(riga[central_servizio_col]) else ""
-                                            cf = str(riga[central_cf_col]) if central_cf_col and pd.notna(riga[central_cf_col]) else ""
-                                            gestore_riga = str(riga[gestore_col]) if pd.notna(riga[gestore_col]) else ""  # AGGIUNGI
-                                            
-                                            if pd.notna(data_completa):
-                                                data_str = str(data_completa)
-                                                data_senza_micro = data_str.split('.')[0] if '.' in data_str else data_str
-                                            else:
-                                                data_str = ""
-                                                data_senza_micro = ""
-                                            
-                                            servizio_lower = servizio.lower()
-                                            
-                                            mask = (df_full_updated[central_date_col].astype(str).str.split('.').str[0] == data_senza_micro) & \
-                                                (df_full_updated[central_servizio_col].astype(str).str.lower() == servizio_lower)
-                                            
-                                            # AGGIUNGI IL MATCH CON GESTORE ✅
-                                            if gestore_col and gestore_riga:
-                                                mask = mask & (df_full_updated[gestore_col].astype(str).str.strip() == gestore_riga)
-                                            
-                                            if central_cf_col and cf:
-                                                mask = mask & (df_full_updated[central_cf_col].astype(str) == cf)
-                                            
-                                            df_full_updated = df_full_updated[~mask]
+                                        data_senza_micro = str(data_completa).split('.')[0] if pd.notna(data_completa) else ""
+                                        servizio_lower = servizio.lower()
+                                        
+                                        mask = (
+                                            df_full_updated[central_date_col].astype(str).str.split('.').str[0] == data_senza_micro
+                                        ) & (
+                                            df_full_updated[central_servizio_col].astype(str).str.lower() == servizio_lower
+                                        )
+                                        
+                                        if gestore_col and gestore_riga:
+                                            mask = mask & (df_full_updated[gestore_col].astype(str).str.strip() == gestore_riga)
+                                        
+                                        if central_cf_col and cf:
+                                            mask = mask & (df_full_updated[central_cf_col].astype(str) == cf)
+                                        
+                                        df_full_updated = df_full_updated[~mask]
+                                    # ─────────────────────────────────────────────────────────────
 
                                     st.info(f"Database centrale: eliminate {num_da_eliminare} righe")
 
+                            # aggiornamento celle modificate
                             for idx, row in df_to_save.iterrows():
                                 if 'id' in row and pd.notna(row['id']):
                                     mask = df_full_updated['id'] == row['id']
@@ -337,15 +302,9 @@ def main(**kwargs):
                                             if col in df_full_updated.columns:
                                                 df_full_updated.loc[mask, col] = row[col]
                             
-                            if 'NDG DEBITORE' in df_full_updated.columns:
-                                df_full_updated['NDG DEBITORE'] = df_full_updated['NDG DEBITORE'].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', '')
-                            
-                            if 'NDG NOMINATIVO RICERCATO' in df_full_updated.columns:
-                                df_full_updated['NDG NOMINATIVO RICERCATO'] = df_full_updated['NDG NOMINATIVO RICERCATO'].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', '')
-                            
-                            folder_path = st.secrets["DT_FOLDER_PATH"]
+                            df_full_updated = _clean_ndg_df(df_full_updated)
+
                             file_path = f"{folder_path}/dt.parquet"
-                            
                             buffer = BytesIO()
                             df_full_updated.to_parquet(buffer, index=False)
                             buffer.seek(0)
@@ -353,10 +312,13 @@ def main(**kwargs):
                             success = nav.upload_file_direct(site_id, drive_id, file_path, buffer.getvalue())
                             
                             if success:
+                                # ── FIX BUG 2: num_da_eliminare sempre aggiornato ──
+                                num_da_eliminare = len(righe_eliminate) if not righe_eliminate.empty else 0
                                 msg_success = "Modifiche salvate con successo"
                                 if num_da_eliminare > 0:
                                     msg_success += f" ({num_da_eliminare} righe eliminate)"
                                 st.success(msg_success)
+                                # ──────────────────────────────────────────────────
                                 st.session_state['df_dt_full'] = df_full_updated
                                 st.cache_data.clear()
                                 st.rerun()

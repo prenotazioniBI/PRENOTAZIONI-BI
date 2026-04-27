@@ -5,7 +5,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import pytz
-
+from pathlib import Path
 
 def carica_richieste_personali(nav):
     """Carica le richieste personali dell'utente dal suo file su SharePoint"""
@@ -71,6 +71,50 @@ def carica_richieste_personali(nav):
         return None
     
 
+@st.cache_data(show_spinner=False)
+def _load_dt_soggetti() -> pd.DataFrame:
+    p = Path(__file__).resolve().parent / "dt_soggetti.parquet"
+    if not p.exists():
+        return pd.DataFrame()
+    try:
+        return pd.read_parquet(p)
+    except Exception:
+        return pd.DataFrame()
+
+
+def _get_iban_for_clessidra(richiesta: dict) -> str:
+    """
+    Cerca IBAN in dt_soggetti.parquet:
+    1) match per CF
+    2) fallback per NDG debitore
+    """
+    df = _load_dt_soggetti()
+    if df.empty:
+        return ""
+
+    # mappa colonne case-insensitive
+    cols = {c.lower().strip(): c for c in df.columns}
+    iban_col = cols.get("iban")
+    if not iban_col:
+        return ""
+
+    cf_col = next((c for c in df.columns if "cf" in c.lower() or "codice fiscale" in c.lower()), None)
+    ndg_col = next((c for c in df.columns if "ndg" in c.lower()), None)
+
+    cf = str(richiesta.get("cf", "") or richiesta.get("C.F.", "")).strip().upper()
+    ndg = str(richiesta.get("ndg_debitore", "")).strip().upper()
+
+    if cf and cf_col:
+        m = df[cf_col].fillna("").astype(str).str.strip().str.upper().eq(cf)
+        if m.any():
+            return str(df.loc[m, iban_col].iloc[0]).strip()
+
+    if ndg and ndg_col:
+        m = df[ndg_col].fillna("").astype(str).str.strip().str.upper().eq(ndg)
+        if m.any():
+            return str(df.loc[m, iban_col].iloc[0]).strip()
+
+    return ""
 
 def carica_richieste_personali_dt(nav):
     """Carica le richieste personali dell'utente dal suo file su SharePoint"""
@@ -124,7 +168,7 @@ def carica_richieste_personali_dt(nav):
     
 
 def menu_utente_dt(df_dt, servizi_scelti, navigator_dt):
-    """Gestisce il salvataggio delle richieste DT"""
+    st.dataframe(df_dt)
     try:
         richiesta = st.session_state.get("richiesta", {})
 
@@ -137,8 +181,19 @@ def menu_utente_dt(df_dt, servizi_scelti, navigator_dt):
                     return v.strip() if isinstance(v, str) else v
             return default
 
+        cf = str(pick("cf", "C.F.", default="")).strip().upper()
+        portafoglio = str(pick("portafoglio", default=richiesta.get("portafoglio", ""))).strip()
+        servizi_lc = [str(s).lower() for s in servizi_scelti]
+        is_diffida_or_welcome = any(("diffida" in s) or ("welcome" in s) for s in servizi_lc)
         is_telegramma = "Telegramma" in servizi_scelti
-        
+
+        # ── NUOVA LOGICA IBAN ─────────────────────────────────────────────
+        # L'IBAN è già stato salvato in session_state["richiesta"]["iban"]
+        # da seleziona_servizio — lo leggiamo direttamente senza più
+        # controllare il portafoglio o chiamare _get_iban_for_clessidra
+        iban = richiesta.get("iban", "")
+        # ─────────────────────────────────────────────────────────────────
+
         if is_telegramma:
             indirizzo = pick("indirizzo_telegramma")
             comune = pick("comune_telegramma")
@@ -165,7 +220,6 @@ def menu_utente_dt(df_dt, servizi_scelti, navigator_dt):
                 if pec_value:
                     pec = pec_value
                     break
-            
             rapporto = pick("rapporto")
             gbvAttuale = pick("gbvAttuale")
             originator = pick("originator")
@@ -189,23 +243,23 @@ def menu_utente_dt(df_dt, servizi_scelti, navigator_dt):
             "cap": cap,
             "regione": regione,
             "tipoLuogo": tipoLuogo,
-            "pec": pec, 
+            "pec": pec,
             "originator": originator,
             "telefono_gestore": telefono_gestore,
             "email_gestore": email_gestore,
-            "motivazione": richiesta.get("motivazione", "") 
+            "motivazione": richiesta.get("motivazione", ""),
+            "iban": iban,  # ← viene da richiesta["iban"] salvato da seleziona_servizio
         }
-        
+
         df_result, success, msg = salva_richiesta_utente_dt(
             df_dt=df_dt,
             servizi_scelti=servizi_scelti,
             navigator_dt=navigator_dt,
-            **parametri  
+            **parametri
         )
-        
 
         return df_result, success, msg
-        
+
     except Exception as e:
         print(f"Errore in menu_utente_dt: {e}")
         import traceback

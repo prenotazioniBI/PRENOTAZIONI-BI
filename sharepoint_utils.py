@@ -26,7 +26,10 @@ class SharePointNavigator:
             client_credential=client_secret,
             authority=f"https://login.microsoftonline.com/{tenant_id}"
         )
-        self.file_buffer = []  
+        self.file_buffer = []
+        self._site_id = None
+        self._drive_id = None
+        self._drive_name = None
     
     def login(self):
         try:
@@ -66,6 +69,8 @@ class SharePointNavigator:
             return False
     
     def get_site_id(self):
+        if self._site_id:
+            return self._site_id
         site_path = self.site_url.replace("https://", "").replace("http://", "")
         parts = site_path.split('/')
         hostname = parts[0]
@@ -78,51 +83,35 @@ class SharePointNavigator:
         try:
             response = requests.get(api_url, headers=headers)
             if response.status_code == 200:
-                site_data = response.json()
-                return site_data['id']
+                self._site_id = response.json()['id']
+                return self._site_id
             else:
                 return None
-        except Exception as e:
+        except Exception:
             return None
     
     def get_drive_id(self, site_id):
+        if self._drive_id:
+            return self._drive_id, self._drive_name
         url = f"{self.graph_url}/sites/{site_id}/drives"
         headers = {"Authorization": f"Bearer {self.access_token}"}
-        
+
         try:
             response = requests.get(url, headers=headers)
             if response.status_code == 200:
                 drives = response.json()["value"]
-                
-                print(f"  Trovate {len(drives)} libraries:")
-                for drive in drives:
-                    print(f"   - {drive['name']} (ID: {drive['id'][:20]}...)")
-                print()
-                
-                search_names = [
-                    self.library_name,
-                    "Shared Documents",
-                    "Documents", 
-                    "Documenti",
-                    "Documenti condivisi"
-                ]
-                
+                search_names = [self.library_name, "Shared Documents", "Documents", "Documenti", "Documenti condivisi"]
                 for search_name in search_names:
                     for drive in drives:
                         if search_name.lower() in drive['name'].lower():
-                            print(f"Uso library: {drive['name']}")
-                            return drive['id'], drive['name']
-                
+                            self._drive_id, self._drive_name = drive['id'], drive['name']
+                            return self._drive_id, self._drive_name
                 if drives:
-                    print(f"Uso library default: {drives[0]['name']}")
-                    return drives[0]['id'], drives[0]['name']
-                
-                print("Nessuna library trovata")
+                    self._drive_id, self._drive_name = drives[0]['id'], drives[0]['name']
+                    return self._drive_id, self._drive_name
                 return None, None
             else:
-                print(f"Errore: {response.status_code}")
                 return None, None
-                
         except Exception as e:
             print(f"Errore: {str(e)}")
             return None, None

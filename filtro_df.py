@@ -3,6 +3,41 @@ import streamlit as st
 import unicodedata
 import re
 
+_COLONNE_ATTESE_DT = [
+    "PORTAFOGLIO", "NDG DEBITORE", "NOMINATIVO POSIZIONE", "RAPPORTO",
+    "NDG NOMINATIVO RICERCATO", "GBV ATTUALE", "DESTINATARIO", "GESTORE",
+    "TELEFONO GESTORE", "EMAIL GESTORE", "DATA RICHIESTA", "INVIATE AL PROVIDER",
+    "TIPO LUOGO", "SIGLA", "REGIONE", "PEC DESTINATARIO", "INDIRIZZO",
+    "NUMERO CIVICO", "CITTA", "CAP", "PROVINCIA", "TIPOLOGIA DOCUMENTO",
+    "MODALITA INVIO", "ORIGINATOR", "id", "IBAN",
+]
+
+
+def _filtro_data_generica(df, col, label, key):
+    date_col = pd.to_datetime(df[col], dayfirst=True, errors="coerce")
+    valid_dates = date_col.dropna()
+    if len(valid_dates) == 0:
+        return df
+    selected_date = st.date_input(
+        label,
+        value=None,
+        min_value=valid_dates.min().date(),
+        max_value=valid_dates.max().date(),
+        key=key,
+    )
+    if selected_date:
+        df = df[date_col.dt.date == selected_date]
+    return df
+
+
+def _clean_str_cols(df, cols):
+    """Pulisce colonne stringa numerica: rimuove trailing .0 e 'nan'."""
+    for col in cols:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', '')
+    return df
+
+
 def _normalize_text(s: str) -> str:
     if s is None:
         return ""
@@ -23,48 +58,14 @@ def filtro_cf(df, key_suffix=""):
     return df
 
 def filtro_data(df, key_suffix="test"):
-    date_col = pd.to_datetime(df["INVIATE AL PROVIDER"], dayfirst=True, errors="coerce")
-    valid_dates = date_col.dropna()
-    
-    if len(valid_dates) == 0:
+    if df is None or df.empty or "INVIATE AL PROVIDER" not in df.columns:
         return df
-    
-    min_date = valid_dates.min().date()
-    max_date = valid_dates.max().date()
-    selected_date = st.date_input(
-        "Inviate al provider",
-        value=None,
-        min_value=min_date,
-        max_value=max_date,
-        key=f"data_picker_{key_suffix}"
-    )
-    if selected_date:
-        mask = date_col.dt.date == selected_date
-        df = df[mask]
-    return df
+    return _filtro_data_generica(df, "INVIATE AL PROVIDER", "Inviate al provider", f"data_picker_{key_suffix}")
 
 def filtro_data_evasione(df, key_suffix=""):
     if df is None or df.empty or "INVIATE AL PROVIDER" not in df.columns:
         return df
-    date_col = pd.to_datetime(df["INVIATE AL PROVIDER"], dayfirst=True, errors="coerce")
-    valid_dates = date_col.dropna()
-    
-    if len(valid_dates) == 0:
-        return df
-    
-    min_date = valid_dates.min().date()
-    max_date = valid_dates.max().date()
-    selected_date = st.date_input(
-        "Data evasione",
-        value=None,
-        min_value=min_date,
-        max_value=max_date,
-        key=f"data_evasione_{key_suffix}"
-    )
-    if selected_date:
-        mask = date_col.dt.date == selected_date
-        df = df[mask]
-    return df
+    return _filtro_data_generica(df, "INVIATE AL PROVIDER", "Data evasione", f"data_evasione_{key_suffix}")
 
 # CORREZIONE: Nuovo filtro per stato provider
 def filtro_stato_provider(df, key_suffix=""):
@@ -296,20 +297,8 @@ def mostra_df_completo_dt(df_dt, key_suffix=""):
         return pd.DataFrame()
     
     df_dt = df_dt.copy()
-    
-    # Pulizia colonne numeriche
-    if 'NDG DEBITORE' in df_dt.columns:
-        df_dt['NDG DEBITORE'] = df_dt['NDG DEBITORE'].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', '')
-    
-    if 'NDG NOMINATIVO RICERCATO' in df_dt.columns:
-        df_dt['NDG NOMINATIVO RICERCATO'] = df_dt['NDG NOMINATIVO RICERCATO'].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', '')
-    
-    if 'NUMERO CIVICO' in df_dt.columns:
-        df_dt['NUMERO CIVICO'] = df_dt['NUMERO CIVICO'].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', '')
-    
-    if 'CAP' in df_dt.columns:
-        df_dt['CAP'] = df_dt['CAP'].astype(str).str.replace(r'\.0$', '', regex=True).replace('nan', '')
-    
+    df_dt = _clean_str_cols(df_dt, ['NDG DEBITORE', 'NDG NOMINATIVO RICERCATO', 'NUMERO CIVICO', 'CAP'])
+
     # Aggiungi i 4 filtri
     col1, col2, col3, col4 = st.columns([0.25, 0.25, 0.25, 0.25])
     
@@ -370,54 +359,9 @@ def mostra_df_completo_dt(df_dt, key_suffix=""):
 
 def mostra_df_filtrato_home_admin_dt(df_dt, key_suffix=""):
     if df_dt is None or df_dt.empty:
-        colonne_attese = [
-            "PORTAFOGLIO",
-            "NDG DEBITORE", 
-            "NOMINATIVO POSIZIONE",
-            "RAPPORTO",
-            "NDG NOMINATIVO RICERCATO",
-            "GBV ATTUALE",
-            "DESTINATARIO",
-            "GESTORE",
-            "TELEFONO GESTORE",
-            "EMAIL GESTORE",
-            "DATA RICHIESTA",
-            "INVIATE AL PROVIDER",
-            "TIPO LUOGO",
-            "SIGLA",
-            "REGIONE",
-            "PEC DESTINATARIO",
-            "INDIRIZZO",
-            "NUMERO CIVICO",
-            "CITTA",
-            "CAP",
-            "PROVINCIA",
-            "TIPOLOGIA DOCUMENTO",
-            "MODALITA INVIO",
-            "ORIGINATOR",
-            "id"
-        ]
-        df_dt = pd.DataFrame(columns=colonne_attese)
-    
-    if 'NDG DEBITORE' in df_dt.columns:
-        df_dt['NDG DEBITORE'] = df_dt['NDG DEBITORE'].astype(str)
-        df_dt['NDG DEBITORE'] = df_dt['NDG DEBITORE'].str.replace(r'\.0$', '', regex=True)
-        df_dt['NDG DEBITORE'] = df_dt['NDG DEBITORE'].replace('nan', '')
-    
-    if 'NDG NOMINATIVO RICERCATO' in df_dt.columns:
-        df_dt['NDG NOMINATIVO RICERCATO'] = df_dt['NDG NOMINATIVO RICERCATO'].astype(str)
-        df_dt['NDG NOMINATIVO RICERCATO'] = df_dt['NDG NOMINATIVO RICERCATO'].str.replace(r'\.0$', '', regex=True)
-        df_dt['NDG NOMINATIVO RICERCATO'] = df_dt['NDG NOMINATIVO RICERCATO'].replace('nan', '')
-    
-    if 'NUMERO CIVICO' in df_dt.columns:
-        df_dt['NUMERO CIVICO'] = df_dt['NUMERO CIVICO'].astype(str)
-        df_dt['NUMERO CIVICO'] = df_dt['NUMERO CIVICO'].str.replace(r'\.0$', '', regex=True)
-        df_dt['NUMERO CIVICO'] = df_dt['NUMERO CIVICO'].replace('nan', '')
-    
-    if 'CAP' in df_dt.columns:
-        df_dt['CAP'] = df_dt['CAP'].astype(str)
-        df_dt['CAP'] = df_dt['CAP'].str.replace(r'\.0$', '', regex=True)
-        df_dt['CAP'] = df_dt['CAP'].replace('nan', '')
+        df_dt = pd.DataFrame(columns=_COLONNE_ATTESE_DT)
+
+    df_dt = _clean_str_cols(df_dt, ['NDG DEBITORE', 'NDG NOMINATIVO RICERCATO', 'NUMERO CIVICO', 'CAP'])
     col1, col2, col3, col4 = st.columns([0.25, 0.25, 0.25, 0.25])
     
     with col1:

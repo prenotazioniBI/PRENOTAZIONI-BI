@@ -3,6 +3,7 @@ from firebase_admin import credentials, auth
 import streamlit as st
 import requests
 
+
 # Inizializza Firebase Admin SDK una sola volta
 def initialize_firebase():
     """Inizializza Firebase Admin SDK se non già inizializzato"""
