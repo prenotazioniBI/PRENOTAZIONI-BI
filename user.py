@@ -168,7 +168,6 @@ def carica_richieste_personali_dt(nav):
     
 
 def menu_utente_dt(df_dt, servizi_scelti, navigator_dt):
-    st.dataframe(df_dt)
     try:
         richiesta = st.session_state.get("richiesta", {})
 
@@ -181,18 +180,8 @@ def menu_utente_dt(df_dt, servizi_scelti, navigator_dt):
                     return v.strip() if isinstance(v, str) else v
             return default
 
-        cf = str(pick("cf", "C.F.", default="")).strip().upper()
-        portafoglio = str(pick("portafoglio", default=richiesta.get("portafoglio", ""))).strip()
-        servizi_lc = [str(s).lower() for s in servizi_scelti]
-        is_diffida_or_welcome = any(("diffida" in s) or ("welcome" in s) for s in servizi_lc)
         is_telegramma = "Telegramma" in servizi_scelti
-
-        # ── NUOVA LOGICA IBAN ─────────────────────────────────────────────
-        # L'IBAN è già stato salvato in session_state["richiesta"]["iban"]
-        # da seleziona_servizio — lo leggiamo direttamente senza più
-        # controllare il portafoglio o chiamare _get_iban_for_clessidra
         iban = richiesta.get("iban", "")
-        # ─────────────────────────────────────────────────────────────────
 
         if is_telegramma:
             indirizzo = pick("indirizzo_telegramma")

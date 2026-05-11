@@ -183,20 +183,17 @@ def seleziona_servizio(dt_soggetti, df_dt, navigator_dt, menu_utente_dt):
 
     is_diffida_or_welcome = any(s in ["Diffida", "Welcome Letter"] for s in servizi_scelti)
 
-    # ── NUOVA LOGICA IBAN ─────────────────────────────────────────────────────
-    # Mostra l'IBAN se presente per quel CF, indipendentemente dal portafoglio
+    # ── IBAN ──────────────────────────────────────────────────────────────────
     if is_diffida_or_welcome:
         iban_value = _safe_val(soggetto_completo, "iban")
-        if iban_value:
-            st.text_input(
-                "IBAN",
-                value=iban_value,
-                disabled=True,
-                key="iban_clessidra_readonly_ui",
-                help="IBAN letto automaticamente da dt_soggetti.parquet",
-            )
-            st.session_state["richiesta"]["iban"] = iban_value
-    # ─────────────────────────────────────────────────────────────────────────
+        st.text_input(
+            "IBAN",
+            value=iban_value,
+            key="iban_richiesta",
+            help="IBAN letto da dt_soggetti.parquet (modificabile se necessario)",
+        )
+        st.session_state["richiesta"]["iban"] = st.session_state.get("iban_richiesta", iban_value)
+    # ──────────────────────────────────────────────────────────────────────────
 
     user = st.session_state.get("user", {})
     email_gestore_default = user.get("email", "")
@@ -226,7 +223,7 @@ def seleziona_servizio(dt_soggetti, df_dt, navigator_dt, menu_utente_dt):
                 st.text_input("CAP *", value=_safe_val(soggetto_completo, "cap"), key="cap_diffida")
                 st.text_input("Regione", value=_safe_val(soggetto_completo, "regione"), key="regione_diffida")
                 st.text_input("Tipo Luogo", value=_safe_val(soggetto_completo, "tipoLuogo"), key="tipo_luogo_diffida")
-                st.text_input("Originator *", value=_safe_val(soggetto_completo, "originator"), key="originator")
+                st.text_input("Originator *", value=_safe_val(soggetto_completo, "originator", "fonteRecapito"), key="originator")
 
     # TELEGRAMMA
     if "Telegramma" in servizi_scelti:

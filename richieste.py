@@ -126,4 +126,3 @@ def banner_richiesta_utente(df_soggetti):
         for key in ["cf_ok", "soggetti_cf", "portafogli", "portafoglio_sel", "ndg_sel", "cf_salvato"]:
             st.session_state.pop(key, None)
         st.rerun()
-# ...existing code...
