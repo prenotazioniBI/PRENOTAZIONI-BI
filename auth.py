@@ -7,7 +7,7 @@ SPECIAL_USERS = {
     "filippo.strocchi@fbs.it": ("analista", "Filippo Strocchi"),
     "simona.tampelli@fbs.it": ("team leader", "Simona Tampelli"),
     "marco.gabelli@fbs.it": ("team leader", "Marco Gabelli"),
-    "roberto.nicoli@fbs.it": ("team leader", "Roberto Nicoli"),
+    "roberto.nicoli@fbs.it": ("admin", "Roberto Nicoli"),
     "eric.melandri@fbs.it" : ("team leader", "Roberto Nicoli"),
     "nicoletta.valanzano@fbs.it": ("team leader", "Nicoletta Valanzano"),
     "filippo.facibeni@fbs.it": ("admin", "Filippo Facibeni")
