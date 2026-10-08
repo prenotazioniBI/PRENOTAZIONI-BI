@@ -8,7 +8,122 @@ import pytz
 import time
 from nav import _scarica_file_sp
 
+def _norm_ndg(valore):
+    s = str(valore).strip().upper()
+    if s in ("", "NAN", "NONE", "NAT", "<NA>"):
+        return ""
+    if s.endswith(".0"):
+        s = s[:-2]
+    return s
+def controlla_duplicati_cf(cf_richiesta, servizi_scelti, navigator_dt, ndg_posizione=""):
+    """
+    Blocca se esiste già una richiesta con stesso CF + stesso NDG DEBITORE + stesso servizio
+    negli ultimi 365 giorni (anche di altri gestori).
+    Se l'NDG è vuoto, controlla solo CF + servizio.
+    """
+    try:
+        nav = navigator_dt
 
+        dt_folder_path = st.secrets["DT_FOLDER_PATH"]
+        file_centrale = f"{dt_folder_path}/dt.parquet"
+
+        site_id = nav.get_site_id()
+        drive_id, _ = nav.get_drive_id(site_id)
+
+        encoded_path = quote(file_centrale)
+        url = f"https://graph.microsoft.com/v1.0/sites/{site_id}/drives/{drive_id}/root:/{encoded_path}:/content"
+        headers = {"Authorization": f"Bearer {nav.access_token}"}
+
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            df_centrale = pd.read_parquet(BytesIO(response.content))
+
+            df_centrale["DATA RICHIESTA"] = pd.to_datetime(
+                df_centrale["DATA RICHIESTA"], errors="coerce", dayfirst=True
+            )
+
+            df_centrale["CF"] = df_centrale["CF"].astype(str).str.strip().str.upper()
+            cf_richiesta_upper = str(cf_richiesta).strip().upper()
+
+            richieste_cf = df_centrale[df_centrale["CF"] == cf_richiesta_upper].copy()
+
+            if not richieste_cf.empty:
+                ndg_richiesta = _norm_ndg(ndg_posizione)
+
+                for servizio in servizi_scelti:
+                    richieste_simili = richieste_cf[
+                        richieste_cf["TIPOLOGIA DOCUMENTO"].str.contains(
+                            servizio.upper(), case=False, na=False, regex=False
+                        )
+                    ].copy()
+
+                    # Blocco su CF + NDG DEBITORE + servizio
+                    if ndg_richiesta and "NDG DEBITORE" in richieste_simili.columns:
+                        richieste_simili = richieste_simili[
+                            richieste_simili["NDG DEBITORE"].map(_norm_ndg) == ndg_richiesta
+                        ].copy()
+
+                    if not richieste_simili.empty:
+                        roma_tz = pytz.timezone("Europe/Rome")
+                        oggi = datetime.now(roma_tz).date()
+
+                        richieste_simili["giorni_fa"] = richieste_simili["DATA RICHIESTA"].apply(
+                            lambda x: (oggi - x.date()).days if pd.notna(x) else None
+                        )
+
+                        richieste_recenti = richieste_simili[
+                            (richieste_simili["giorni_fa"] >= 0) &
+                            (richieste_simili["giorni_fa"] <= 365)
+                        ]
+
+                        if not richieste_recenti.empty:
+                            richiesta_precedente = richieste_recenti.sort_values(
+                                "DATA RICHIESTA", ascending=False
+                            ).iloc[0]
+
+                            giorni_fa = int(richiesta_precedente["giorni_fa"])
+                            data_precedente = richiesta_precedente["DATA RICHIESTA"].strftime("%d/%m/%Y")
+                            gestore_precedente = richiesta_precedente.get("GESTORE", "Sconosciuto")
+                            portafoglio_precedente = richiesta_precedente.get("PORTAFOGLIO", "Sconosciuto")
+                            modalita_invio = richiesta_precedente.get("MODALITA INVIO", "Non specificata")
+
+                            if giorni_fa == 0:
+                                tempo_msg = "oggi"
+                            elif giorni_fa == 1:
+                                tempo_msg = "1 giorno fa"
+                            elif giorni_fa < 30:
+                                tempo_msg = f"{giorni_fa} giorni fa"
+                            elif giorni_fa < 365:
+                                mesi = giorni_fa // 30
+                                tempo_msg = f"{mesi} {'mese' if mesi == 1 else 'mesi'} fa ({giorni_fa} giorni)"
+                            else:
+                                tempo_msg = f"{giorni_fa} giorni fa"
+
+                            msg_errore = (
+                                f"⚠️ ATTENZIONE - RICHIESTA DUPLICATA\n\n"
+                                f"Il servizio '{servizio}' per il CF **{cf_richiesta_upper}** "
+                                f"(NDG **{ndg_richiesta or '-'}**) è già stato richiesto:\n\n"
+                                f" **Data:** {data_precedente} ({tempo_msg})\n"
+                                f" **Gestore:** {gestore_precedente}\n"
+                                f" **Portafoglio:** {portafoglio_precedente}\n"
+                                f" **Modalità invio:** {modalita_invio}\n\n"
+                                f" Puoi richiederlo nuovamente tra **{365 - giorni_fa} giorni**"
+                            )
+
+                            st.error(msg_errore)
+                            return False
+
+        elif response.status_code != 404:
+            st.warning(f"Errore durante il controllo duplicati: {response.status_code}")
+
+        return True
+
+    except Exception as e:
+        print(f"Errore controllo duplicati CF: {e}")
+        st.warning(f"Impossibile verificare duplicati: {e}")
+        return True
+'''
 def controlla_duplicati_cf(cf_richiesta, servizi_scelti, navigator_dt):
     """
     Controlla se esiste già una richiesta per lo stesso CF con gli stessi servizi,
@@ -123,7 +238,7 @@ def controlla_duplicati_cf(cf_richiesta, servizi_scelti, navigator_dt):
     except Exception as e:
         print(f"Errore controllo duplicati CF: {e}")
         st.warning(f"Impossibile verificare duplicati: {e}")
-        return True
+        return True'''
 
 def seleziona_servizio(dt_soggetti, df_dt, navigator_dt, menu_utente_dt):
     richieste = ["Diffida", "Welcome Letter", "Telegramma"]
@@ -426,13 +541,21 @@ def conferma_invio_richiesta(servizi_scelti, df_dt, navigator_dt, menu_utente_dt
         if not controlla_limite_mensile_gestore(navigator_dt):
             st.stop()
 
-        cf_richiesta = st.session_state.get("richiesta", {}).get("cf", "")
+        '''cf_richiesta = st.session_state.get("richiesta", {}).get("cf", "")
         
         # CONTROLLO DUPLICATI CROSS-GESTORE
         if cf_richiesta and any(serv in ["Diffida", "Welcome Letter"] for serv in servizi_scelti):
             if not controlla_duplicati_cf(cf_richiesta, servizi_scelti, navigator_dt):
+                st.stop()'''
+
+        cf_richiesta = st.session_state.get("richiesta", {}).get("cf", "")
+        ndg_richiesta = st.session_state.get("richiesta", {}).get("ndg_debitore", "")
+        
+        # CONTROLLO DUPLICATI CROSS-GESTORE (CF + NDG + servizio)
+        if cf_richiesta and servizi_scelti:
+            if not controlla_duplicati_cf(cf_richiesta, servizi_scelti, navigator_dt, ndg_richiesta):
                 st.stop()
-    
+
         if servizi_scelti:
             if any(servizio in ["Diffida", "Welcome Letter"] for servizio in servizi_scelti):
                 tipo_invio = st.session_state.get("tipo_invio_diffida", "")

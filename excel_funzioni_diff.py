@@ -261,7 +261,8 @@ def unifica_file_utenti_dt(nav, folder_path):
                 df["TIPOLOGIA DOCUMENTO"] = df["TIPOLOGIA DOCUMENTO"].astype(str).str.strip().str.upper()
 
     # CORREZIONE: Rimozione duplicati meno aggressiva
-    duplicate_cols = ["CF", "DESTINATARIO", "TIPOLOGIA DOCUMENTO"]
+    #duplicate_cols = ["CF", "DESTINATARIO", "TIPOLOGIA DOCUMENTO"]
+    duplicate_cols = ["CF", "NDG DEBITORE", "DESTINATARIO", "TIPOLOGIA DOCUMENTO"]
     duplicate_cols = [col for col in duplicate_cols if col in df_nuovi.columns and col in df_centrale.columns]
     
 
