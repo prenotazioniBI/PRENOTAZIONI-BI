@@ -10,7 +10,7 @@ SPECIAL_USERS = {
     "roberto.nicoli@fbs.it": ("admin", "Roberto Nicoli"),
     "eric.melandri@fbs.it" : ("team leader", "Roberto Nicoli"),
     "nicoletta.valanzano@fbs.it": ("team leader", "Nicoletta Valanzano"),
-    "filippo.facibeni@fbs.it": ("admin", "Filippo Facibeni")
+    "filippo.facibeni@fbs.it": ("admin", "Filippo Facibeni"),
     "ICT@fbs.it": ("admin", "ICT") #aggiunto da ERIC
 }
 def create_user_profile_on_sharepoint(email, username):
